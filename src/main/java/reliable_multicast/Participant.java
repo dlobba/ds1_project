@@ -30,34 +30,12 @@ public class Participant extends BaseParticipant {
 	 */
 	private void onJoinMsg(JoinRequestMsg joinResponse) {
 		this.id = joinResponse.idAssigned;
-		System.out.printf("Participant %s has been given id %d.\n", 
-				this.getSelf().path().name(),
-				this.id);
+		System.out.printf("%d P-%d P-%s JOIN-ASSOC\n",
+				System.currentTimeMillis(),
+				this.id,
+				this.getSelf().path().name());
 	}
 	
-	
-//	
-//	private void onReceiveMessage(Message message) {
-//		System.out.print("Participant %d received message $d", this.id, message.id);
-//		// deliver here
-//		System.out.print("Participant %d delivered message $d", this.id, message.id);
-//		this.messagesUnstable.add(message);
-//	}
-//	
-//	private void performMulticast() {
-//		for (ActorRef member : view) {
-//			this.getSelf().tell(new Message(this.id + "-" + this.multicastId),
-//					member);
-//		}
-//		this.multicastId += 1;
-//
-//		// this node cannot send message
-//		// until this one is completed
-//		this.canSend = false;
-//		
-//		// send stable
-//		
-//	}
 //	
 //	private void onNextMulticast() {
 //		if (canSend)
@@ -77,7 +55,8 @@ public class Participant extends BaseParticipant {
 				.match(StopMulticastMsg.class, this::onStopMulticast)
 				.match(ViewChangeMsg.class, this::onViewChangeMsg)
 				.match(FlushMsg.class, this::onFlushMsg)
-				//.match(Message.class, this::onReceiveMessage)
+				.match(Message.class, this::onReceiveMessage)
+				.match(SendMulticastMsg.class, this::onSendMulticastMsg)
 				//.match(AliveMsg.class, this::onAliveMsg)
 				.build();
 	}

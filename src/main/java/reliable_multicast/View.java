@@ -1,5 +1,4 @@
 package reliable_multicast;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -31,8 +30,8 @@ public class View {
 		for (ActorRef member : members) {
 			membersString.add(member.path().name());
 		}
-		return "View [id=" + id + ", members=" +
+		return "V" + id + "={" +
 			String.join(", ", membersString)
-			+ "]";
+			+ "}";
 	}
 }

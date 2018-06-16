@@ -6,6 +6,7 @@ import akka.actor.ActorRef;
 import akka.actor.Props;
 import reliable_multicast.messages.FlushMsg;
 import reliable_multicast.messages.JoinRequestMsg;
+import reliable_multicast.messages.Message;
 import reliable_multicast.messages.StopMulticastMsg;
 import reliable_multicast.messages.ViewChangeMsg;
 
@@ -28,8 +29,15 @@ public class GroupManager extends BaseParticipant{
 		HashSet<ActorRef> initialView = new HashSet<ActorRef>();
 		initialView.add(this.getSelf());
 		this.view = new View(0, initialView);
-		
-		System.out.printf("Group manager initiated, %s\n",
+		this.tempView = new View(view);
+		System.out.printf("%d P-%d P-%d INFO Group_manager_initiated\n",
+				System.currentTimeMillis(),
+				this.id,
+				this.id);
+		System.out.printf("%d P-%d P-%d INFO View %s\n",
+				System.currentTimeMillis(),
+				this.id,
+				this.id,
 				this.view.toString());
 	}
 	
@@ -38,14 +46,19 @@ public class GroupManager extends BaseParticipant{
 	}
 	
 	private void onJoinRequestMsg(JoinRequestMsg request) {
-		System.out.printf("Received join request from %s\n",
+		/*System.out.printf("%d P-%s P-%s INFO join_request\n",
+				System.currentTimeMillis(),
+				this.getSelf().path().name(),
 				this.getSender().path().name());
+		*/
 		JoinRequestMsg response = new JoinRequestMsg(this.idPool);
 		this.getSender().tell(response, this.getSelf());
 		this.idPool += 1;
 		
 		// define the new view
-		Set<ActorRef> newView = new HashSet<>(this.view.members);
+		// we start from the last temporary view since it's
+		// the most up to date.
+		Set<ActorRef> newView = new HashSet<>(this.tempView.members);
 		newView.add(this.getSender());
 		onViewChange(newView);
 	}
@@ -62,9 +75,12 @@ public class GroupManager extends BaseParticipant{
 		// send the view change before acknowledging
 		// everyone has stopped sending multicasts.
 		
-		this.tempView = new View(this.view.id + 1,
+		this.tempView = new View(this.tempView.id + 1,
 				newMembers);
-		System.out.printf("Group manager issues a view change, members: %s\n",
+		System.out.printf("%d P-%d P-%d INFO change-view: %s\n",
+				System.currentTimeMillis(),
+				this.id,
+				this.id,
 				this.tempView.toString());
 		ViewChangeMsg viewMsg = new ViewChangeMsg(this.tempView);
 		for (ActorRef actorRef : newMembers) {
@@ -102,6 +118,7 @@ public class GroupManager extends BaseParticipant{
 				.match(StopMulticastMsg.class, this::onStopMulticast)
 				.match(ViewChangeMsg.class, this::onViewChangeMsg)
 				.match(FlushMsg.class, this::onFlushMsg)
+				.match(Message.class, this::onReceiveMessage)
 //				.match(CheckViewMsg.class,  this::onCheckViewMsg)
 				.build();
 	}
