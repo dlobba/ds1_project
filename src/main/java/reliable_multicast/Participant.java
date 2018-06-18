@@ -6,13 +6,13 @@ import reliable_multicast.messages.*;
 public class Participant extends BaseParticipant {
 	
 	protected ActorRef groupManager;
-	protected boolean crashedMode;
+	protected boolean crashed;
 	
 	// Constructors
 	public Participant(ActorRef groupManager) {
 		super();
 		this.groupManager = groupManager;
-		this.crashedMode = false;
+		this.crashed = false;
 		
 		this.groupManager.tell(new JoinRequestMsg(), this.getSelf());
 	}
@@ -29,6 +29,8 @@ public class Participant extends BaseParticipant {
 	 * with the ID for the participant.
 	 */
 	private void onJoinMsg(JoinRequestMsg joinResponse) {
+		if (this.crashed)
+			return;
 		this.id = joinResponse.idAssigned;
 		System.out.printf("%d P-%d P-%s JOIN-ASSOC\n",
 				System.currentTimeMillis(),
@@ -36,18 +38,48 @@ public class Participant extends BaseParticipant {
 				this.getSelf().path().name());
 	}
 	
-//	
-//	private void onNextMulticast() {
-//		if (canSend)
-//			performMulticast();
-//	}
-	
-	
+	private void onCrashMsg(CrashMsg crashMsg) {
+		this.crashed = true;
+		this.canSend = false;
+		System.out.printf("%d P-%d P-%s CRASHED\n",
+				System.currentTimeMillis(),
+				this.id,
+				this.id);
+		this.groupManager.tell(new CrashMsg(), this.getSelf());
+	}
 	
 //	private void onAliveMsg(AliveMsg aliveMsg) {
 //		this.getSelf().tell(new AliveMsg(), this.getSender());
 //	}
 	
+	@Override
+	protected void onStopMulticast(StopMulticastMsg stopMsg) {
+		if (this.crashed)
+			return;
+		super.onStopMulticast(stopMsg);
+	}
+
+	@Override
+	protected void onViewChangeMsg(ViewChangeMsg viewChange) {
+		if (this.crashed)
+			return;
+		super.onViewChangeMsg(viewChange);
+	}
+
+	@Override
+	protected void onFlushMsg(FlushMsg flushMsg) {
+		if (this.crashed)
+			return;
+		super.onFlushMsg(flushMsg);
+	}
+
+	@Override
+	protected void onReceiveMessage(Message message) {
+		if (this.crashed)
+			return;
+		super.onReceiveMessage(message);
+	}
+
 	@Override
 	public Receive createReceive() {
 		return receiveBuilder()
@@ -57,6 +89,7 @@ public class Participant extends BaseParticipant {
 				.match(FlushMsg.class, this::onFlushMsg)
 				.match(Message.class, this::onReceiveMessage)
 				.match(SendMulticastMsg.class, this::onSendMulticastMsg)
+				.match(CrashMsg.class, this::onCrashMsg)
 				//.match(AliveMsg.class, this::onAliveMsg)
 				.build();
 	}

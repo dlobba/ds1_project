@@ -4,6 +4,7 @@ import java.util.Set;
 
 import akka.actor.ActorRef;
 import akka.actor.Props;
+import reliable_multicast.messages.CrashMsg;
 import reliable_multicast.messages.FlushMsg;
 import reliable_multicast.messages.JoinRequestMsg;
 import reliable_multicast.messages.Message;
@@ -16,7 +17,8 @@ public class GroupManager extends BaseParticipant{
 	// nodes joining
 	private int idPool;
 	private Set<ActorRef> alivesReceived;
-	private static final int ALIVE_TIMEOUT = 10;
+	private static final int ALIVE_TIMEOUT = 
+			BaseParticipant.MULTICAST_INTERLEAVING / 2;
 	
 	public GroupManager(int id) {
 		super();
@@ -111,6 +113,16 @@ public class GroupManager extends BaseParticipant{
 //				this.getSelf());
 //	}
 	
+	/*
+	 * this is just temporary, when a node crashes it sends
+	 * a crashed message to the gm who issues a viewchange
+	 */
+	private void onCrashedMessage(CrashMsg msg) {
+		Set<ActorRef> newView = new HashSet<>(this.tempView.members);
+		newView.remove(this.getSender());
+		onViewChange(newView);
+	}
+	
 	@Override
 	public Receive createReceive() {
 		return receiveBuilder()
@@ -120,6 +132,8 @@ public class GroupManager extends BaseParticipant{
 				.match(FlushMsg.class, this::onFlushMsg)
 				.match(Message.class, this::onReceiveMessage)
 //				.match(CheckViewMsg.class,  this::onCheckViewMsg)
+				// temporary
+				.match(CrashMsg.class, this::onCrashedMessage)
 				.build();
 	}
 }

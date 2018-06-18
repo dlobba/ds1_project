@@ -21,23 +21,33 @@ public class Message implements Serializable {
 		this.stable = stable;
 	}
 
-	/*
-	 * Only the message and sender ID are compared.
-	 */
+	// this method is required for hash sets
+	// to work
 	@Override
-	public boolean equals(Object other) {
-		if (other == null)
-			return false;
-		if (this == other)
-			return true;
-		
-		if (other instanceof Message) {
-			return (this.messageID == ((Message) other).messageID &&
-					this.senderID == ((Message) other).senderID);
-		}
-		return false;
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + messageID;
+		result = prime * result + senderID;
+		return result;
 	}
 
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (!(obj instanceof Message))
+			return false;
+		Message other = (Message) obj;
+		if (messageID != other.messageID)
+			return false;
+		if (senderID != other.senderID)
+			return false;
+		return true;
+	}
+	
 	@Override
 	public String toString() {
 		return "p" + senderID + "m" + messageID;
