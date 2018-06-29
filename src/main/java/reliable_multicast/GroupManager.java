@@ -1,9 +1,14 @@
 package reliable_multicast;
+
 import java.util.HashSet;
+import scala.concurrent.duration.Duration;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import akka.actor.ActorRef;
 import akka.actor.Props;
+import reliable_multicast.messages.AliveMsg;
+import reliable_multicast.messages.CheckViewMsg;
 import reliable_multicast.messages.FlushMsg;
 import reliable_multicast.messages.JoinRequestMsg;
 import reliable_multicast.messages.Message;
@@ -39,6 +44,8 @@ public class GroupManager extends BaseParticipant{
 				this.id,
 				this.id,
 				this.view.toString());
+		
+		this.onCheckViewMsg(new CheckViewMsg());
 	}
 	
 	public static Props props(int id) {
@@ -62,6 +69,8 @@ public class GroupManager extends BaseParticipant{
 		newView.add(this.getSender());
 		onViewChange(newView);
 	}
+	
+	
 	
 	private void onViewChange(Set<ActorRef> newMembers) {
 		// tell every member in the view to stop
@@ -88,28 +97,37 @@ public class GroupManager extends BaseParticipant{
 		}
 	}
 	
-//	/*
-//	 * Send a message to each member in the view.
-//	 * If a response has not been received by some
-//	 * member (from a previous call to the method)
-//	 * then issue a view change.
-//	 */
-//	private void onCheckViewMsg(CheckViewMsg msg) {
-//		System.out.printf("Start checking survivors!\n");
-//		if (alivesReceived.size() > 0) {
-//			System.out.printf("Some node crashed!\n");
-//		} else {
-//			for (ActorRef member : view.members) {
-//				member.tell(new AliveMsg(), this.getSelf());
-//			}
-//		}
-//		this.getContext().getSystem().scheduler()
-//		.scheduleOnce(Duration.create(ALIVE_TIMEOUT / 2, TimeUnit.SECONDS),
-//				this.getSelf(),
-//				new CheckViewMsg(),
-//				getContext().system().dispatcher(),
-//				this.getSelf());
-//	}
+	/*
+	 * Send a message to each member in the view.
+	 * If a response has not been received by some
+	 * member (from a previous call to the method)
+	 * then issue a view change.
+	 */
+	private void onCheckViewMsg(CheckViewMsg msg) {
+		System.out.printf("Start checking survivors!\n");
+		if (alivesReceived.size() > 0) {
+			System.out.printf("Some node crashed!\n");
+		} else {
+			for (ActorRef member : view.members) {
+				member.tell(new AliveMsg(this.aliveId, this.id), this.getSelf());
+			}
+			aliveId++;
+		}
+		this.getContext().getSystem().scheduler()
+		.scheduleOnce(Duration.create(ALIVE_TIMEOUT / 2, TimeUnit.SECONDS),
+				this.getSelf(),
+				new CheckViewMsg(),
+				getContext().system().dispatcher(),
+				this.getSelf());
+	}
+	
+	private void onAliveMsg(AliveMsg msg) {
+		System.out.printf("%d P-%d P-%d received_alive_message %s\n",
+				System.currentTimeMillis(),
+				this.id,
+				msg.senderID,
+				msg.toString());
+	}
 	
 	@Override
 	public Receive createReceive() {
@@ -119,7 +137,8 @@ public class GroupManager extends BaseParticipant{
 				.match(ViewChangeMsg.class, this::onViewChangeMsg)
 				.match(FlushMsg.class, this::onFlushMsg)
 				.match(Message.class, this::onReceiveMessage)
-//				.match(CheckViewMsg.class,  this::onCheckViewMsg)
+				.match(CheckViewMsg.class,  this::onCheckViewMsg)
+				.match(AliveMsg.class,	this::onAliveMsg)
 				.build();
 	}
 }

@@ -43,10 +43,9 @@ public class Participant extends BaseParticipant {
 //	}
 	
 	
-	
-//	private void onAliveMsg(AliveMsg aliveMsg) {
-//		this.getSelf().tell(new AliveMsg(), this.getSender());
-//	}
+		private void onAliveMsg(AliveMsg aliveMsg) {
+		this.getSender().tell(new AliveMsg(this.aliveId++, this.id), this.getSelf());
+	}
 	
 	@Override
 	public Receive createReceive() {
@@ -57,7 +56,7 @@ public class Participant extends BaseParticipant {
 				.match(FlushMsg.class, this::onFlushMsg)
 				.match(Message.class, this::onReceiveMessage)
 				.match(SendMulticastMsg.class, this::onSendMulticastMsg)
-				//.match(AliveMsg.class, this::onAliveMsg)
+				.match(AliveMsg.class, this::onAliveMsg)
 				.build();
 	}
 }
