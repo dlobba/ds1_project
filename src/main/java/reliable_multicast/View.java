@@ -23,6 +23,14 @@ public class View {
 		this.id = other.id;
 		this.members = new HashSet<>(other.members);
 	}
+	
+	public int getId() {
+		return id;
+	}
+
+	public Set<ActorRef> getMembers() {
+		return new HashSet<>(members);
+	}
 
 	@Override
 	public String toString() {

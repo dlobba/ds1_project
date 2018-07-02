@@ -5,6 +5,8 @@ import akka.actor.ActorSystem;
 import reliable_multicast.GroupManager;
 import reliable_multicast.Participant;
 import reliable_multicast.messages.CrashMsg;
+import reliable_multicast.messages.JoinRequestMsg;
+import reliable_multicast.messages.ReviveMsg;
 import reliable_multicast.BaseParticipant.SendMulticastMsg;
 import scala.concurrent.duration.Duration;
 
@@ -31,6 +33,12 @@ public class ReliableMulticast {
 				TimeUnit.SECONDS),
 			p2,
 			new CrashMsg(),
+			system.dispatcher(),
+			null);
+	    system.scheduler().scheduleOnce(Duration.create(25,
+				TimeUnit.SECONDS),
+			p2,
+			new ReviveMsg(),
 			system.dispatcher(),
 			null);
 	}

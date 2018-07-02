@@ -8,7 +8,6 @@ import java.util.concurrent.TimeUnit;
 
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
-
 import reliable_multicast.messages.FlushMsg;
 import reliable_multicast.messages.Message;
 import reliable_multicast.messages.StopMulticastMsg;
@@ -46,7 +45,22 @@ public class BaseParticipant extends AbstractActor {
 		this.messagesUnstable = new HashSet<>();
 		this.flushesReceived = new HashSet<>();
 	}
-
+	public int getId() {
+		return id;
+	}
+	
+	public int getMulticastId() {
+		return multicastId;
+	}
+	
+	public View getView() {
+		return new View(view);
+	}
+	
+	public View getTempView() {
+		return new View(tempView);
+	}
+	
 	protected void onStopMulticast(StopMulticastMsg stopMsg) {
 		this.canSend = false;
 		System.out.printf("%d P-%d P-%d INFO stopped_multicasting\n",
@@ -178,7 +192,7 @@ public class BaseParticipant extends AbstractActor {
 			this.deliverMessage(message);
 		}
 	}
-	
+
 	@Override
 	public Receive createReceive() {
 		return receiveBuilder()

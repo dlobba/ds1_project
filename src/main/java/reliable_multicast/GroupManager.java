@@ -16,6 +16,7 @@ public class GroupManager extends BaseParticipant{
 	// id generator used for ID assignment to
 	// nodes joining
 	private int idPool;
+	
 	private Set<ActorRef> alivesReceived;
 	private static final int ALIVE_TIMEOUT = 
 			BaseParticipant.MULTICAST_INTERLEAVING / 2;
@@ -47,8 +48,17 @@ public class GroupManager extends BaseParticipant{
 	    return Props.create(GroupManager.class, () -> new GroupManager(id));
 	}
 	
+	public int getIdPool() {
+		return idPool;
+	}
+	
+	public Set<ActorRef> getAlivesReceived() {
+		return new HashSet<>(this.alivesReceived);
+	}
+	
 	private void onJoinRequestMsg(JoinRequestMsg request) {
-		/*System.out.printf("%d P-%s P-%s INFO join_request\n",
+		/*
+		 System.out.printf("%d P-%s P-%s INFO join_request\n",
 				System.currentTimeMillis(),
 				this.getSelf().path().name(),
 				this.getSender().path().name());
@@ -115,7 +125,7 @@ public class GroupManager extends BaseParticipant{
 	
 	/*
 	 * this is just temporary, when a node crashes it sends
-	 * a crashed message to the gm who issues a viewchange
+	 * a crashed message to the gm who issues a view change
 	 */
 	private void onCrashedMessage(CrashMsg msg) {
 		Set<ActorRef> newView = new HashSet<>(this.tempView.members);
@@ -132,7 +142,8 @@ public class GroupManager extends BaseParticipant{
 				.match(FlushMsg.class, this::onFlushMsg)
 				.match(Message.class, this::onReceiveMessage)
 //				.match(CheckViewMsg.class,  this::onCheckViewMsg)
-				// temporary
+				// temporary: crashes should be automatically
+				// notified after a timeout
 				.match(CrashMsg.class, this::onCrashedMessage)
 				.build();
 	}
