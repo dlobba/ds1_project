@@ -35,8 +35,14 @@ public class GroupManager extends BaseParticipant {
 		initialView.add(this.getSelf());
 		this.view = new View(0, initialView);
 		this.tempView = new View(view);
-		System.out.printf("%d P-%d P-%d INFO Group_manager_initiated\n", System.currentTimeMillis(), this.id, this.id);
-		System.out.printf("%d P-%d P-%d INFO View %s\n", System.currentTimeMillis(), this.id, this.id,
+		System.out.printf("%d P-%d P-%d INFO Group_manager_initiated\n",
+				System.currentTimeMillis(),
+				this.id,
+				this.id);
+		System.out.printf("%d P-%d P-%d INFO View %s\n",
+				System.currentTimeMillis(),
+				this.id,
+				this.id,
 				this.view.toString());
 
 		this.getSelf().tell(new CheckViewMsg(), this.getSelf());
@@ -75,9 +81,11 @@ public class GroupManager extends BaseParticipant {
 		// framework, we are (we should) be safe not
 		// send the view change before acknowledging
 		// everyone has stopped sending multicasts.
-
 		this.tempView = new View(this.tempView.id + 1, newMembers);
-		System.out.printf("%d P-%d P-%d INFO change-view: %s\n", System.currentTimeMillis(), this.id, this.id,
+		System.out.printf("%d P-%d P-%d INFO change-view: %s\n",
+				System.currentTimeMillis(),
+				this.id,
+				this.id,
 				this.tempView.toString());
 		ViewChangeMsg viewMsg = new ViewChangeMsg(this.tempView);
 		for (ActorRef actorRef : newMembers) {
@@ -91,31 +99,53 @@ public class GroupManager extends BaseParticipant {
 	 * view change.
 	 */
 	private void onCheckViewMsg(CheckViewMsg msg) {
-		System.out.printf("Start checking survivors!\n");
+		System.out.printf("%d P-%d P-%d INFO Checking survivors\n",
+				System.currentTimeMillis(),
+				this.id,
+				this.id);
 		if (alivesReceived.size() > 0) {
+			/* here the view must be changed.
+			 * New members are current members minus the one
+			 * from which the heartbeat has not been received.
+			 */
 			System.out.printf("Some node crashed!\n");
 		} else {
 			for (ActorRef member : view.members) {
-				member.tell(new AliveMsg(this.aliveId, this.id), this.getSelf());
+				member.tell(new AliveMsg(this.aliveId, this.id),
+						this.getSelf());
 			}
 			aliveId++;
 		}
-		this.getContext().getSystem().scheduler().scheduleOnce(Duration.create(ALIVE_TIMEOUT / 2, TimeUnit.SECONDS),
-				this.getSelf(), new CheckViewMsg(), getContext().system().dispatcher(), this.getSelf());
+		this.getContext()
+			.getSystem()
+			.scheduler()
+			.scheduleOnce(Duration.create(
+					ALIVE_TIMEOUT / 2, TimeUnit.SECONDS),
+					this.getSelf(),
+					new CheckViewMsg(),
+					getContext().system().dispatcher(),
+					this.getSelf());
 	}
 
 	private void onAliveMsg(AliveMsg msg) {
 		alivesReceived.add(this.getSender());
-		
-		System.out.printf("%d P-%d P-%d received_alive_message %s\n", System.currentTimeMillis(), this.id, msg.senderID,
+		System.out.printf("%d P-%d P-%d received_alive_message %s\n",
+				System.currentTimeMillis(),
+				this.id,
+				msg.senderID,
 				msg.toString());
 	}
 
 	@Override
 	public Receive createReceive() {
-		return receiveBuilder().match(JoinRequestMsg.class, this::onJoinRequestMsg)
-				.match(StopMulticastMsg.class, this::onStopMulticast).match(ViewChangeMsg.class, this::onViewChangeMsg)
-				.match(FlushMsg.class, this::onFlushMsg).match(Message.class, this::onReceiveMessage)
-				.match(CheckViewMsg.class, this::onCheckViewMsg).match(AliveMsg.class, this::onAliveMsg).build();
+		return receiveBuilder()
+				.match(JoinRequestMsg.class, this::onJoinRequestMsg)
+				.match(StopMulticastMsg.class, this::onStopMulticast)
+				.match(ViewChangeMsg.class, this::onViewChangeMsg)
+				.match(FlushMsg.class, this::onFlushMsg)
+				.match(Message.class, this::onReceiveMessage)
+				.match(CheckViewMsg.class, this::onCheckViewMsg)
+				.match(AliveMsg.class, this::onAliveMsg)
+				.build();
 	}
 }
