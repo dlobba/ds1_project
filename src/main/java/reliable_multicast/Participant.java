@@ -31,7 +31,6 @@ public class Participant extends BaseParticipant {
 	private void onJoinMsg(JoinRequestMsg joinResponse) {
 		if (this.crashed)
 			return;
-		
 		this.id = joinResponse.idAssigned;
 		System.out.printf("%d P-%d P-%s JOIN-ASSOC\n",
 				System.currentTimeMillis(),
@@ -76,14 +75,7 @@ public class Participant extends BaseParticipant {
 			return;
 		super.onReceiveMessage(message);
 	}
-	
-//	
-//	private void onNextMulticast() {
-//		if (canSend)
-//			performMulticast();
-//	}
-	
-	
+
 	private void onAliveMsg(AliveMsg aliveMsg) {			
 		if (this.crashed)
 			return;
@@ -91,7 +83,6 @@ public class Participant extends BaseParticipant {
 			.tell(
 				new AliveMsg(this.aliveId, this.id),
 				this.getSelf());
-	}
 	
 		@Override
 		public Receive createReceive() {

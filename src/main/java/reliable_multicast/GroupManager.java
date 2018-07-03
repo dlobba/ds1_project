@@ -21,9 +21,10 @@ public class GroupManager extends BaseParticipant {
 	// nodes joining
 	private int idPool;
 	private Set<ActorRef> alivesReceived;
-	private static final int ALIVE_TIMEOUT = 10;
+	private static final int ALIVE_TIMEOUT = 
+			BaseParticipant.MULTICAST_INTERLEAVING / 2;
 
-	public GroupManager(int id) {
+  public GroupManager(int id) {
 		super();
 		this.id = id;
 		this.idPool = 1;
@@ -150,7 +151,17 @@ public class GroupManager extends BaseParticipant {
 				msg.senderID,
 				msg.toString());
 	}
-
+	
+	/*
+	 * this is just temporary, when a node crashes it sends
+	 * a crashed message to the gm who issues a viewchange
+	 */
+	private void onCrashedMessage(CrashMsg msg) {
+		Set<ActorRef> newView = new HashSet<>(this.tempView.members);
+		newView.remove(this.getSender());
+		onViewChange(newView);
+	}
+	
 	@Override
 	public Receive createReceive() {
 		return receiveBuilder()
