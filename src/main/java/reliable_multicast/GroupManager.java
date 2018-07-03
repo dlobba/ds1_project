@@ -94,8 +94,16 @@ public class GroupManager extends BaseParticipant {
 		System.out.printf("Start checking survivors!\n");
 		if (alivesReceived.size() > 0) {
 			System.out.printf("Some node crashed!\n");
+			
+			Set<ActorRef> newView = new HashSet<>(this.view.members);
+			for (ActorRef actor : alivesReceived) 
+				newView.remove(actor);
+			alivesReceived.clear();
+			
+			onViewChange(newView);
 		} else {
 			for (ActorRef member : view.members) {
+				alivesReceived.add(member);
 				member.tell(new AliveMsg(this.aliveId, this.id), this.getSelf());
 			}
 			aliveId++;
@@ -105,7 +113,7 @@ public class GroupManager extends BaseParticipant {
 	}
 
 	private void onAliveMsg(AliveMsg msg) {
-		alivesReceived.add(this.getSender());
+		alivesReceived.remove(this.getSender());
 		
 		System.out.printf("%d P-%d P-%d received_alive_message %s\n", System.currentTimeMillis(), this.id, msg.senderID,
 				msg.toString());
@@ -114,8 +122,11 @@ public class GroupManager extends BaseParticipant {
 	@Override
 	public Receive createReceive() {
 		return receiveBuilder().match(JoinRequestMsg.class, this::onJoinRequestMsg)
-				.match(StopMulticastMsg.class, this::onStopMulticast).match(ViewChangeMsg.class, this::onViewChangeMsg)
-				.match(FlushMsg.class, this::onFlushMsg).match(Message.class, this::onReceiveMessage)
-				.match(CheckViewMsg.class, this::onCheckViewMsg).match(AliveMsg.class, this::onAliveMsg).build();
+				.match(StopMulticastMsg.class, this::onStopMulticast)
+				.match(ViewChangeMsg.class, this::onViewChangeMsg)
+				.match(FlushMsg.class, this::onFlushMsg)
+				.match(Message.class, this::onReceiveMessage)
+				.match(CheckViewMsg.class, this::onCheckViewMsg)
+				.match(AliveMsg.class, this::onAliveMsg).build();
 	}
 }
