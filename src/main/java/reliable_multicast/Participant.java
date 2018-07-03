@@ -48,10 +48,6 @@ public class Participant extends BaseParticipant {
 		this.groupManager.tell(new CrashMsg(), this.getSelf());
 	}
 	
-//	private void onAliveMsg(AliveMsg aliveMsg) {
-//		this.getSelf().tell(new AliveMsg(), this.getSender());
-//	}
-	
 	@Override
 	protected void onStopMulticast(StopMulticastMsg stopMsg) {
 		if (this.crashed)
@@ -80,17 +76,25 @@ public class Participant extends BaseParticipant {
 		super.onReceiveMessage(message);
 	}
 
-	@Override
-	public Receive createReceive() {
-		return receiveBuilder()
-				.match(JoinRequestMsg.class, this::onJoinMsg)
-				.match(StopMulticastMsg.class, this::onStopMulticast)
-				.match(ViewChangeMsg.class, this::onViewChangeMsg)
-				.match(FlushMsg.class, this::onFlushMsg)
-				.match(Message.class, this::onReceiveMessage)
-				.match(SendMulticastMsg.class, this::onSendMulticastMsg)
-				.match(CrashMsg.class, this::onCrashMsg)
-				//.match(AliveMsg.class, this::onAliveMsg)
-				.build();
-	}
+	private void onAliveMsg(AliveMsg aliveMsg) {			
+		if (this.crashed)
+			return;
+		this.getSender()
+			.tell(
+				new AliveMsg(this.aliveId, this.id),
+				this.getSelf());
+	
+		@Override
+		public Receive createReceive() {
+			return receiveBuilder()
+					.match(JoinRequestMsg.class, this::onJoinMsg)
+					.match(StopMulticastMsg.class, this::onStopMulticast)
+					.match(ViewChangeMsg.class, this::onViewChangeMsg)
+					.match(FlushMsg.class, this::onFlushMsg)
+					.match(Message.class, this::onReceiveMessage)
+					.match(SendMulticastMsg.class, this::onSendMulticastMsg)
+					.match(CrashMsg.class, this::onCrashMsg)
+					.match(AliveMsg.class, this::onAliveMsg)
+					.build();
+		}
 }

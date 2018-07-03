@@ -5,7 +5,6 @@ import akka.actor.ActorSystem;
 import reliable_multicast.GroupManager;
 import reliable_multicast.Participant;
 import reliable_multicast.messages.CrashMsg;
-import reliable_multicast.BaseParticipant.SendMulticastMsg;
 import scala.concurrent.duration.Duration;
 
 public class ReliableMulticast {

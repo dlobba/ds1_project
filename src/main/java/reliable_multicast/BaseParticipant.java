@@ -1,5 +1,6 @@
 package reliable_multicast;
 
+
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Random;
@@ -8,6 +9,7 @@ import java.util.concurrent.TimeUnit;
 
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
+
 
 import reliable_multicast.messages.FlushMsg;
 import reliable_multicast.messages.Message;
@@ -26,6 +28,7 @@ public class BaseParticipant extends AbstractActor {
 	public static final int MULTICAST_INTERLEAVING = 10;
 	protected int id;
 	protected int multicastId;
+	protected int aliveId;
 	// the set of actors that are seen by this node
 	protected View view;
 	
@@ -40,6 +43,7 @@ public class BaseParticipant extends AbstractActor {
 		super();
 		this.id = -1;
 		this.multicastId = 0;
+		this.aliveId = 0;
 		this.view = new View(-1);
 		this.tempView = new View(-1);
 		this.canSend = false;
