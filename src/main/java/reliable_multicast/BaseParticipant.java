@@ -27,6 +27,7 @@ public class BaseParticipant extends AbstractActor {
 	protected int multicastId;
 	// the set of actors that are seen by this node
 	protected View view;
+	protected boolean manualMode;
 	
 	// temporary view established in the all-to-all
 	// phase
@@ -35,16 +36,22 @@ public class BaseParticipant extends AbstractActor {
 	protected Set<ActorRef> flushesReceived;
 	protected Set<Message> messagesUnstable;
 	
-	public BaseParticipant() {
+	public BaseParticipant(boolean manualMode) {
 		super();
 		this.id = -1;
 		this.multicastId = 0;
 		this.view = new View(-1);
 		this.tempView = new View(-1);
 		this.canSend = false;
+		this.manualMode = manualMode;
 		this.messagesUnstable = new HashSet<>();
 		this.flushesReceived = new HashSet<>();
 	}
+	
+	public BaseParticipant() {
+		this(false);
+	}
+	
 	public int getId() {
 		return id;
 	}
@@ -120,7 +127,7 @@ public class BaseParticipant extends AbstractActor {
 					this.id,
 					this.id);
 			
-			// resume multicasting
+			// resume multicasting (if in auto mode)
 			this.canSend = true;
 			this.scheduleMulticast();
 		}
@@ -139,16 +146,26 @@ public class BaseParticipant extends AbstractActor {
 		this.multicast();
 	}
 	
-	private void scheduleMulticast() {
+	/**
+	 * Schedule a new multicast.
+	 * Be careful that here the bahavior will differ
+	 * between EventsController and normal Participants.
+	 * 
+	 * In the case of a participant, the scheduling
+	 * should be ignore if in manual mode.
+	 * 
+	 * While in the case of the EventController the
+	 * scheduling represents a step of batch mutlicasts.
+	 */
+	protected void scheduleMulticast() {
 		int time = new Random().nextInt(MULTICAST_INTERLEAVING);
-		
 		this.getContext().getSystem().scheduler()
-		.scheduleOnce(Duration.create(time,
+			.scheduleOnce(Duration.create(time,
 					TimeUnit.SECONDS),
-				this.getSelf(),
-				new SendMulticastMsg(),
-				getContext().system().dispatcher(),
-				this.getSelf());
+					this.getSelf(),
+					new SendMulticastMsg(),
+					getContext().system().dispatcher(),
+					this.getSelf());
 	}
 	
 	private void multicast() {
@@ -158,7 +175,6 @@ public class BaseParticipant extends AbstractActor {
 		// this node cannot send message
 		// until this one is completed
 		this.canSend = false;
-
 		Message message = new Message(this.id,
 				this.multicastId,
 				false);

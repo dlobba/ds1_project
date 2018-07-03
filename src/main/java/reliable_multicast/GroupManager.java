@@ -11,7 +11,7 @@ import reliable_multicast.messages.Message;
 import reliable_multicast.messages.StopMulticastMsg;
 import reliable_multicast.messages.ViewChangeMsg;
 
-public class GroupManager extends BaseParticipant{
+public class GroupManager extends EventsController {
 	
 	// id generator used for ID assignment to
 	// nodes joining
@@ -21,8 +21,8 @@ public class GroupManager extends BaseParticipant{
 	private static final int ALIVE_TIMEOUT = 
 			BaseParticipant.MULTICAST_INTERLEAVING / 2;
 	
-	public GroupManager(int id) {
-		super();
+	public GroupManager(int id, boolean manualMode) {
+		super(manualMode);
 		this.id = id;
 		this.idPool = 1;
 		this.alivesReceived = new HashSet<>();
@@ -44,8 +44,17 @@ public class GroupManager extends BaseParticipant{
 				this.view.toString());
 	}
 	
+	public GroupManager(int id) {
+		this(id, false);
+	}
+	
+	public static Props props(int id, boolean manualMode) {
+	    return Props.create(GroupManager.class,
+	    		() -> new GroupManager(id, manualMode));
+	}
+	
 	public static Props props(int id) {
-	    return Props.create(GroupManager.class, () -> new GroupManager(id));
+	    return props(id, false);
 	}
 	
 	public int getIdPool() {
@@ -65,6 +74,9 @@ public class GroupManager extends BaseParticipant{
 		*/
 		JoinRequestMsg response = new JoinRequestMsg(this.idPool);
 		this.getSender().tell(response, this.getSelf());
+		
+		// add a new entry to the association map
+		this.addIdRefAssoc(this.idPool, this.getSender());
 		this.idPool += 1;
 		
 		// define the new view
@@ -73,6 +85,12 @@ public class GroupManager extends BaseParticipant{
 		Set<ActorRef> newView = new HashSet<>(this.tempView.members);
 		newView.add(this.getSender());
 		onViewChange(newView);
+	}
+	
+	@Override
+	protected void onReceiveMessage(Message message) {
+		super.onReceiveMessage(message);
+		this.triggerEvent(message);
 	}
 	
 	private void onViewChange(Set<ActorRef> newMembers) {
@@ -130,6 +148,9 @@ public class GroupManager extends BaseParticipant{
 	private void onCrashedMessage(CrashMsg msg) {
 		Set<ActorRef> newView = new HashSet<>(this.tempView.members);
 		newView.remove(this.getSender());
+		this.removeIdRefEntry(
+				this.getIdByActor(
+						this.getSender()));
 		onViewChange(newView);
 	}
 	

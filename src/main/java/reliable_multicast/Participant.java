@@ -1,33 +1,12 @@
 package reliable_multicast;
-import java.io.Serializable;
 
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import reliable_multicast.messages.*;
+import reliable_multicast.messages.crash_messages.MulticastCrashMsg;
+import reliable_multicast.messages.crash_messages.ReceivingCrashMsg;
 
 public class Participant extends BaseParticipant {
-	
-	public enum MutlicastCrashType {
-		MULTICAST_N_CRASH,
-		MULTICAST_ONE_N_CRASH,
-	}
-	public enum ReceivingCrashType {
-		RECEIVE_VIEW_N_CRASH,
-		RECEIVE_MULTICAST_N_CRASH
-	}
-	
-	public class SendMulticastCrashMsg implements Serializable {
-		final MutlicastCrashType type;
-		public SendMulticastCrashMsg(MutlicastCrashType type) {
-			this.type = type;
-		}
-	};
-	public class SendReceivingCrashMsg implements Serializable {
-		final ReceivingCrashType type;
-		public SendReceivingCrashMsg(ReceivingCrashType type) {
-			this.type = type;
-		}
-	};
 	
 	protected ActorRef groupManager;
 	protected boolean crashed;
@@ -35,17 +14,27 @@ public class Participant extends BaseParticipant {
 	protected boolean receiveViewChangeAndCrash;
 	
 	// Constructors
-	public Participant(ActorRef groupManager) {
-		super();
+	public Participant(ActorRef groupManager, boolean manualMode) {
+		super(manualMode);
 		this.groupManager = groupManager;
 		this.crashed = false;
 		this.receiveMessageAndCrash = false;
 		this.receiveViewChangeAndCrash = false;
-		this.groupManager.tell(new JoinRequestMsg(), this.getSelf());
+		this.groupManager.tell(new JoinRequestMsg(),
+				this.getSelf());
+	}
+	
+	public Participant(ActorRef groupManager) {
+		this(groupManager, false);
+	}	
+	
+	public static Props props(ActorRef groupmanager, boolean manualMode) {
+		return Props.create(Participant.class,
+				() -> new Participant(groupmanager, manualMode));
 	}
 	
 	public static Props props(ActorRef groupmanager) {
-		return Props.create(Participant.class, () -> new Participant(groupmanager));
+		return props(groupmanager);
 	}
 	
 	//--------------------------------
@@ -74,6 +63,17 @@ public class Participant extends BaseParticipant {
 		if (this.crashed)
 			return;
 		super.onStopMulticast(stopMsg);
+	}
+
+	@Override
+	protected void scheduleMulticast() {
+		/* if in manual mode, multicasts
+		 * are not sent automatically, so block
+		 * the scheduling.
+		 */
+		if (this.manualMode)
+			return;
+		super.scheduleMulticast();
 	}
 
 	@Override
@@ -220,7 +220,7 @@ public class Participant extends BaseParticipant {
 		this.getSelf().tell(new CrashMsg(), this.getSelf());
 	}
 	
-	protected void onSendMutlicastCrashMsg(SendMulticastCrashMsg crashMsg) {
+	protected void onSendMutlicastCrashMsg(MulticastCrashMsg crashMsg) {
 		switch (crashMsg.type) {
 		case MULTICAST_N_CRASH:
 			this.multicastAndCrash();
@@ -231,7 +231,7 @@ public class Participant extends BaseParticipant {
 		}
 	}
 	
-	protected void onReceivingMulticastCrashMsg(SendReceivingCrashMsg crashMsg) {
+	protected void onReceivingMulticastCrashMsg(ReceivingCrashMsg crashMsg) {
 		switch (crashMsg.type) {
 		case RECEIVE_MULTICAST_N_CRASH:
 			this.receiveMessageAndCrash = true;
@@ -253,9 +253,9 @@ public class Participant extends BaseParticipant {
 				.match(SendMulticastMsg.class, this::onSendMulticastMsg)
 				.match(CrashMsg.class, this::onCrashMsg)
 				.match(ReviveMsg.class, this::onReviveMsg)
-				.match(SendMulticastCrashMsg.class,
+				.match(MulticastCrashMsg.class,
 						this::onSendMutlicastCrashMsg)
-				.match(SendReceivingCrashMsg.class,
+				.match(ReceivingCrashMsg.class,
 						this::onReceivingMulticastCrashMsg)
 				//.match(AliveMsg.class, this::onAliveMsg)
 				.build();

@@ -1,3 +1,5 @@
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import akka.actor.ActorRef;
@@ -8,6 +10,7 @@ import reliable_multicast.messages.CrashMsg;
 import reliable_multicast.messages.JoinRequestMsg;
 import reliable_multicast.messages.ReviveMsg;
 import reliable_multicast.BaseParticipant.SendMulticastMsg;
+import reliable_multicast.EventsController.Event;
 import scala.concurrent.duration.Duration;
 
 public class ReliableMulticast {
@@ -15,6 +18,11 @@ public class ReliableMulticast {
 	final static int N_NODES = 2;
 	
 	public static void main(String[] args) {
+		
+		Map<String, Event> events = new HashMap<String, Event>();
+		events.put("p1m5", Event.MULTICAST_ONE_N_CRASH);
+		
+		
 		// Create the actor system
 		System.out.print("Reliable multicast started!\n");
 	    final ActorSystem system = ActorSystem.create("multicast_system");
