@@ -9,6 +9,7 @@ import akka.actor.ActorRef;
 import akka.actor.Props;
 import reliable_multicast.messages.AliveMsg;
 import reliable_multicast.messages.CheckViewMsg;
+import reliable_multicast.messages.CrashMsg;
 import reliable_multicast.messages.FlushMsg;
 import reliable_multicast.messages.JoinRequestMsg;
 import reliable_multicast.messages.Message;
