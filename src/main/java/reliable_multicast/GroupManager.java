@@ -105,11 +105,13 @@ public class GroupManager extends BaseParticipant {
 				this.id);
 		if (alivesReceived.size() > 0) {
 			/* here the view must be changed.
-			 * New members are current members minus the one
+			 * New members are current members minus the ones
 			 * from which the heartbeat has not been received.
 			 */
-			System.out.printf("Some node crashed!\n");
-			
+			System.out.printf("%d P-%d P-%d INFO Some node crashed.\n",
+					System.currentTimeMillis(),
+					this.id,
+					this.id);
 			Set<ActorRef> newView = new HashSet<>(this.view.members);
 			for (ActorRef actor : alivesReceived) 
 				newView.remove(actor);
@@ -117,14 +119,15 @@ public class GroupManager extends BaseParticipant {
 			
 			onViewChange(newView);
 		} else {
-			for (ActorRef member : view.members) {
-<<<<<<< HEAD
-				alivesReceived.add(member);
-				member.tell(new AliveMsg(this.aliveId, this.id), this.getSelf());
-=======
-				member.tell(new AliveMsg(this.aliveId, this.id),
+			
+			HashSet<ActorRef> participants =
+					new HashSet<>(this.tempView.members);
+			participants.remove(this.getSelf()); // exclude the group manager
+			
+			for (ActorRef participant : participants) {
+				alivesReceived.add(participant);
+				participant.tell(new AliveMsg(this.aliveId, this.id),
 						this.getSelf());
->>>>>>> heartbeat
 			}
 			aliveId++;
 		}
@@ -140,38 +143,24 @@ public class GroupManager extends BaseParticipant {
 	}
 
 	private void onAliveMsg(AliveMsg msg) {
-<<<<<<< HEAD
 		alivesReceived.remove(this.getSender());
-		
-		System.out.printf("%d P-%d P-%d received_alive_message %s\n", System.currentTimeMillis(), this.id, msg.senderID,
-=======
-		alivesReceived.add(this.getSender());
 		System.out.printf("%d P-%d P-%d received_alive_message %s\n",
 				System.currentTimeMillis(),
 				this.id,
 				msg.senderID,
->>>>>>> heartbeat
 				msg.toString());
 	}
 
 	@Override
 	public Receive createReceive() {
-<<<<<<< HEAD
-		return receiveBuilder().match(JoinRequestMsg.class, this::onJoinRequestMsg)
-=======
 		return receiveBuilder()
 				.match(JoinRequestMsg.class, this::onJoinRequestMsg)
->>>>>>> heartbeat
 				.match(StopMulticastMsg.class, this::onStopMulticast)
 				.match(ViewChangeMsg.class, this::onViewChangeMsg)
 				.match(FlushMsg.class, this::onFlushMsg)
 				.match(Message.class, this::onReceiveMessage)
 				.match(CheckViewMsg.class, this::onCheckViewMsg)
-<<<<<<< HEAD
-				.match(AliveMsg.class, this::onAliveMsg).build();
-=======
 				.match(AliveMsg.class, this::onAliveMsg)
 				.build();
->>>>>>> heartbeat
 	}
 }
