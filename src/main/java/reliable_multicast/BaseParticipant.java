@@ -162,6 +162,12 @@ public class BaseParticipant extends AbstractActor {
 	 * scheduling represents a step of batch mutlicasts.
 	 */
 	protected void scheduleMulticast() {
+		/* if in manual mode, multicasts
+		 * are not sent automatically, so block
+		 * the scheduling.
+		 */
+		if (this.manualMode)
+			return;
 		int time = new Random().nextInt(MULTICAST_INTERLEAVING);
 		this.getContext().getSystem().scheduler()
 			.scheduleOnce(Duration.create(time,

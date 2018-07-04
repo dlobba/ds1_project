@@ -66,17 +66,6 @@ public class Participant extends BaseParticipant {
 	}
 
 	@Override
-	protected void scheduleMulticast() {
-		/* if in manual mode, multicasts
-		 * are not sent automatically, so block
-		 * the scheduling.
-		 */
-		if (this.manualMode)
-			return;
-		super.scheduleMulticast();
-	}
-
-	@Override
 	protected void onViewChangeMsg(ViewChangeMsg viewChange) {
 		if (this.crashed)
 			return;

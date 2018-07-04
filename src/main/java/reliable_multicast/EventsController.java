@@ -1,20 +1,30 @@
 package reliable_multicast;
 
+import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import akka.actor.ActorRef;
+import reliable_multicast.BaseParticipant.SendMulticastMsg;
+import reliable_multicast.messages.FlushMsg;
 import reliable_multicast.messages.Message;
 import reliable_multicast.messages.crash_messages.*;
 import reliable_multicast.messages.crash_messages.MulticastCrashMsg.MutlicastCrashType;
 import reliable_multicast.messages.crash_messages.ReceivingCrashMsg.ReceivingCrashType;
+import scala.concurrent.duration.Duration;
 
 public abstract class EventsController extends BaseParticipant {
+	
+	public class SendStepMsg implements Serializable {};
 	
 	public enum Event {
 		MULTICAST_ONE_N_CRASH,
@@ -30,13 +40,10 @@ public abstract class EventsController extends BaseParticipant {
 	public EventsController(boolean manualMode,
 							Map<String, Event> events,
 							Map<Integer, Set<String>> steps) {
-		super(manualMode);
-		this.step = 0;
-		this.events = new HashMap<>();
-		this.idRefMap = new HashMap<>();
-		this.steps = new HashMap<>();
+		this(manualMode);
 		this.eventsFromMap(events);
 		this.stepsFromMap(steps);
+		
 	}
 	
 	public EventsController(boolean manualMode) {
@@ -45,6 +52,10 @@ public abstract class EventsController extends BaseParticipant {
 		this.events = new HashMap<>();
 		this.idRefMap = new HashMap<>();
 		this.steps = new HashMap<>();
+
+		// start counting steps
+		if (this.manualMode)
+			this.scheduleStep();
 	}
 	
 	public EventsController() {
@@ -99,6 +110,22 @@ public abstract class EventsController extends BaseParticipant {
 		}
 	}
 	
+	protected void onSendStepMsg(SendStepMsg stepMsg) {
+		this.onStep();
+		this.scheduleStep();
+	}
+	
+	protected void scheduleStep() {
+		int time = new Random().nextInt(MULTICAST_INTERLEAVING);
+		this.getContext().getSystem().scheduler()
+			.scheduleOnce(Duration.create(time,
+					TimeUnit.SECONDS),
+					this.getSelf(),
+					new SendStepMsg(),
+					getContext().system().dispatcher(),
+					this.getSelf());
+	}
+	
 	/**
 	 * This defines a step by the event
 	 * controller.
@@ -108,16 +135,13 @@ public abstract class EventsController extends BaseParticipant {
 	 * the controller sends a message to these
 	 * senders that allow them to call a multicast
 	 */
-	@Override
-	protected void scheduleMulticast() {
-		System.out.printf("ALALALA\n");
-		// if in auto mode, act as normal
+	protected void onStep() {
 		if (!this.manualMode) {
-			super.scheduleMulticast();
 			return;
 		}
 
 		/*
+		 * FIRST CHECK:
 		 * the step should be stable, so
 		 * the two views must be the same.
 		 * Only in this way we can be confident
@@ -125,40 +149,63 @@ public abstract class EventsController extends BaseParticipant {
 		 * (as expected).
 		 */
 		if (!this.view.equals(this.tempView)) {
-			System.out.printf("ALALALA diversi\n");
 			return;
 		}
 		/* wait 1 second in order to let other
-		 * nodes to install the view and **be able** to
+		 * nodes install the view and **be able** to
 		 * send new messages.
 		 * In a real system this waiting time should
 		 * approximate the worst among network delays.
 		 */
+		int tmpStep = this.step + 1;
 		try {
 			Thread.sleep(1000);
-			this.step += 1;
 			System.out.printf("%d P-%d P-%s INFO step-%d\n",
 					System.currentTimeMillis(),
 					this.id,
 					this.id,
-					this.step);
+					tmpStep);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
-		HashSet<Integer> sendersIds = this.getSendersInStep(step);
-		ActorRef sender;
-		if (sendersIds == null)
-			return;
-		this.steps.remove(this.step);
 		
-		for (Integer senderId : sendersIds) {
-			sender = this.getActorById(senderId);
-			if (sender != null)
-				sender.tell(new SendMulticastMsg(), this.getSelf());
+		HashSet<Integer> sendersIds = this.getSendersInStep(tmpStep);
+		if (sendersIds == null) {
+			this.step = tmpStep;
+		} else {
+			// obtain actorRefs from senders ID
+			List<ActorRef> senders = new ArrayList<>();
+			for (Integer senderId : sendersIds) {
+				senders.add(this.getActorById(senderId));
+			}
+			
+			/* if current view doesn't contain all
+			 * the processes required in the step,
+			 * then ignore this
+			 * step and do it again in the next
+			 * scheduling
+			 */
+			if (this.view.members.containsAll(senders)) {
+				// it cannot happen for a sender to be null
+				for (ActorRef sender : senders) {
+					sender.tell(new SendMulticastMsg(), this.getSelf());
+				}
+				
+				// remove the step, it won't be executed again
+				this.steps.remove(this.step);
+				// everything went well (hopefully).
+				// So, increase the step
+				this.step = tmpStep;
+			} else {
+				System.out.printf("%d P-%d P-%s WARNING missing processes are required for step-%d\n",
+						System.currentTimeMillis(),
+						this.id,
+						this.id,
+						tmpStep);
+			}
 		}
-		super.scheduleMulticast();
 	}
-
+	
 	/**
 	 * Check whether the sender Id in the message
 	 * has an event associated. If this is the case

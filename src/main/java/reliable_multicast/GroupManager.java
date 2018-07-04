@@ -25,6 +25,7 @@ public class GroupManager extends EventsController {
 	
 	private void initGroupManager(int id) {
 		this.id = id;
+		this.addIdRefAssoc(this.id, this.getSelf());
 		this.idPool = this.id + 1;
 		this.alivesReceived = new HashSet<>();
 		
@@ -194,6 +195,9 @@ public class GroupManager extends EventsController {
 				// temporary: crashes should be automatically
 				// notified after a timeout
 				.match(CrashMsg.class, this::onCrashedMessage)
+				// handle (receiving) the step message defined in
+				// the EventsController
+				.match(SendStepMsg.class, this::onSendStepMsg)
 				.build();
 	}
 }
