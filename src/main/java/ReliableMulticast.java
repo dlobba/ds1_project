@@ -1,6 +1,13 @@
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+
+import com.google.gson.Gson;
 
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
@@ -10,6 +17,7 @@ import reliable_multicast.messages.CrashMsg;
 import reliable_multicast.messages.JoinRequestMsg;
 import reliable_multicast.messages.ReviveMsg;
 import reliable_multicast.BaseParticipant.SendMulticastMsg;
+import reliable_multicast.Config;
 import reliable_multicast.EventsController.Event;
 import scala.concurrent.duration.Duration;
 
@@ -23,20 +31,40 @@ public class ReliableMulticast {
 		events.put("p1m5", Event.MULTICAST_ONE_N_CRASH);
 		
 		
+		Gson gson = new Gson();
+		
+		try {
+			FileReader fr;
+			fr = new FileReader("/home/lubuntu/Desktop/test.json");
+
+			Config conf1 = gson.fromJson(fr, Config.class);
+			System.out.println(gson.toJson(conf1));
+			fr.close();
+		
+		
 		// Create the actor system
 		System.out.print("Reliable multicast started!\n");
 	    final ActorSystem system = ActorSystem.create("multicast_system");
 	    
-	    final ActorRef groupManager = system.actorOf(GroupManager.props(0),
-	    		"gm");
+	    final ActorRef groupManager =
+	    		system.actorOf(GroupManager.props(0,
+	    										  conf1.isManual_mode(),
+	    										  conf1.getUnderlyingEvents(),
+	    										  conf1.getUnderlyingSteps()),
+	    					   "gm");
 //		Maybe this can be invoked when the GM is initiated...
 //	    groupManager.tell(new CheckViewMsg(), null);
 //	    
-	    final ActorRef p1 = system.actorOf(Participant.props(groupManager),
-	    		"p1");
-	    final ActorRef p2 = system.actorOf(Participant.props(groupManager),
-	    		"p2");
+	    final ActorRef p1 =
+	    		system.actorOf(Participant.props(groupManager,
+	    										 conf1.isManual_mode()),
+	    					   "p1");
+	    final ActorRef p2 =
+	    		system.actorOf(Participant.props(groupManager,
+	    										 conf1.isManual_mode()),
+	    					   "p2");
 	    
+	    /*
 	    system.scheduler().scheduleOnce(Duration.create(20,
 				TimeUnit.SECONDS),
 			p2,
@@ -48,7 +76,13 @@ public class ReliableMulticast {
 			p2,
 			new ReviveMsg(),
 			system.dispatcher(),
-			null);
+			null);*/
+	    
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 
 }

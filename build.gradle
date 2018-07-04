@@ -24,6 +24,8 @@ dependencies {
     
     // Use JUnit test framework
     testCompile 'junit:junit:4.12'
+    
+    compile group: 'com.google.code.gson', name: 'gson', version: '2.7'
 }
 
 mainClassName = 'ReliableMulticast'
