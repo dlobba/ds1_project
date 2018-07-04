@@ -1,9 +1,11 @@
 package reliable_multicast;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import akka.actor.ActorRef;
 import akka.actor.Props;
+import reliable_multicast.BaseParticipant.SendMulticastMsg;
 import reliable_multicast.messages.CrashMsg;
 import reliable_multicast.messages.FlushMsg;
 import reliable_multicast.messages.JoinRequestMsg;
@@ -21,10 +23,9 @@ public class GroupManager extends EventsController {
 	private static final int ALIVE_TIMEOUT = 
 			BaseParticipant.MULTICAST_INTERLEAVING / 2;
 	
-	public GroupManager(int id, boolean manualMode) {
-		super(manualMode);
+	private void initGroupManager(int id) {
 		this.id = id;
-		this.idPool = 1;
+		this.idPool = this.id + 1;
 		this.alivesReceived = new HashSet<>();
 		
 		// The Group Manager is the first
@@ -44,17 +45,43 @@ public class GroupManager extends EventsController {
 				this.view.toString());
 	}
 	
-	public GroupManager(int id) {
-		this(id, false);
+	/**
+	 * Constructor thought to be used when manual
+	 * mode is wanted.
+	 * @param id
+	 * @param manualMode
+	 * @param events
+	 * @param steps
+	 */
+	public GroupManager(int id,
+						boolean manualMode,
+						Map<String, Event> events,
+						Map<Integer, Set<String>> steps) {
+		super(manualMode, events, steps);
+		this.initGroupManager(id);
+		
 	}
 	
-	public static Props props(int id, boolean manualMode) {
+	/**
+	 * Constructor thought to be used when auto
+	 * mode is wanted.
+	 * @param id
+	 */
+	public GroupManager(int id) {
+		super(false);
+		this.initGroupManager(id);
+	}
+	
+	public static Props props(int id,
+							  boolean manualMode,
+							  Map<String, Event> events,
+							  Map<Integer, Set<String>> steps) {
 	    return Props.create(GroupManager.class,
-	    		() -> new GroupManager(id, manualMode));
+	    		() -> new GroupManager(id, manualMode, events, steps));
 	}
 	
 	public static Props props(int id) {
-	    return props(id, false);
+	    return props(id);
 	}
 	
 	public int getIdPool() {
@@ -161,6 +188,7 @@ public class GroupManager extends EventsController {
 				.match(StopMulticastMsg.class, this::onStopMulticast)
 				.match(ViewChangeMsg.class, this::onViewChangeMsg)
 				.match(FlushMsg.class, this::onFlushMsg)
+				.match(SendMulticastMsg.class, this::onSendMulticastMsg)
 				.match(Message.class, this::onReceiveMessage)
 //				.match(CheckViewMsg.class,  this::onCheckViewMsg)
 				// temporary: crashes should be automatically

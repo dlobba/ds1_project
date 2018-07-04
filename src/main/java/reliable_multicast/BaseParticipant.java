@@ -48,6 +48,10 @@ public class BaseParticipant extends AbstractActor {
 		this.flushesReceived = new HashSet<>();
 	}
 	
+	public BaseParticipant(Config config) {
+		this(config.isManual_mode());
+	}
+	
 	public BaseParticipant() {
 		this(false);
 	}

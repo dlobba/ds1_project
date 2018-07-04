@@ -34,7 +34,7 @@ public class Participant extends BaseParticipant {
 	}
 	
 	public static Props props(ActorRef groupmanager) {
-		return props(groupmanager);
+		return props(groupmanager, false);
 	}
 	
 	//--------------------------------
