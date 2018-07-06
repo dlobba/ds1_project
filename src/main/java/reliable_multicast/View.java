@@ -47,8 +47,8 @@ public class View {
 				if (other.members != null)
 					return false;
 			}
-			if (!members.containsAll(other.members)
-				|| !other.members.containsAll(members))
+			if (!(members.containsAll(other.members)
+				&& other.members.containsAll(members)))
 				return false;
 		}
 		return true;

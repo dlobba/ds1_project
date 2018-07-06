@@ -149,6 +149,13 @@ public abstract class EventsController extends BaseParticipant {
 		 * (as expected).
 		 */
 		if (!this.view.equals(this.tempView)) {
+			System.out.printf("%d P-%d P-%s INFO View unstable\n",
+					System.currentTimeMillis(),
+					this.id,
+					this.id);
+			System.out.printf("%s ----- %s\n",
+					this.view.toString(),
+					this.tempView.toString());
 			return;
 		}
 		/* wait 1 second in order to let other
