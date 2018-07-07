@@ -25,7 +25,8 @@ public class GroupManager extends EventsController {
 	
 	private void initGroupManager(int id) {
 		this.id = id;
-		this.addIdRefAssoc(this.id, this.getSelf());
+		this.aliveProcesses
+		    .addIdRefAssoc(this.id, this.getSelf());
 		this.idPool = this.id + 1;
 		this.alivesReceived = new HashSet<>();
 		
@@ -57,8 +58,10 @@ public class GroupManager extends EventsController {
 	public GroupManager(int id,
 						boolean manualMode,
 						Map<String, Event> events,
-						Map<Integer, Set<String>> steps) {
-		super(manualMode, events, steps);
+						Map<Integer, Set<String>> sendOrder,
+						Map<Integer, Set<String>> risenOrder,
+						Map<Integer, Set<String>> views) {
+		super(manualMode, events, sendOrder, risenOrder, views);
 		this.initGroupManager(id);
 		
 	}
@@ -76,13 +79,18 @@ public class GroupManager extends EventsController {
 	public static Props props(int id,
 							  boolean manualMode,
 							  Map<String, Event> events,
-							  Map<Integer, Set<String>> steps) {
+							  Map<Integer, Set<String>> sendOrder,
+							  Map<Integer, Set<String>> risenOrder,
+							  Map<Integer, Set<String>> views) {
 	    return Props.create(GroupManager.class,
-	    		() -> new GroupManager(id, manualMode, events, steps));
+	    		() -> new GroupManager(id, manualMode, events,
+	    							   sendOrder, risenOrder,
+	    							   views));
 	}
 	
 	public static Props props(int id) {
-	    return props(id);
+		return Props.create(GroupManager.class,
+	    		() -> new GroupManager(id));
 	}
 	
 	public int getIdPool() {
@@ -104,7 +112,8 @@ public class GroupManager extends EventsController {
 		this.getSender().tell(response, this.getSelf());
 		
 		// add a new entry to the association map
-		this.addIdRefAssoc(this.idPool, this.getSender());
+		this.aliveProcesses
+			.addIdRefAssoc(this.idPool, this.getSender());
 		this.idPool += 1;
 		
 		// define the new view
@@ -118,7 +127,6 @@ public class GroupManager extends EventsController {
 	@Override
 	protected void onReceiveMessage(Message message) {
 		super.onReceiveMessage(message);
-		this.triggerEvent(message);
 	}
 	
 	private void onViewChange(Set<ActorRef> newMembers) {
@@ -176,9 +184,15 @@ public class GroupManager extends EventsController {
 	private void onCrashedMessage(CrashMsg msg) {
 		Set<ActorRef> newView = new HashSet<>(this.tempView.members);
 		newView.remove(this.getSender());
-		this.removeIdRefEntry(
-				this.getIdByActor(
-						this.getSender()));
+		int id = this.aliveProcesses
+					 .getIdByActor(this.getSender());
+		// add the crashed process to the crashedProcesses
+		// map, and remove it from the alivesProcesses map.
+		// The former allows to retrieve the actor Id of
+		// the process to revive (using its previously associated
+		// id).
+		this.crashedProcesses.addIdRefAssoc(id, this.getSender());
+		this.aliveProcesses.removeIdRefEntry(id);
 		onViewChange(newView);
 	}
 	

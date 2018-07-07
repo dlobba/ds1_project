@@ -8,12 +8,12 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import akka.actor.AbstractActor;
-import akka.actor.Actor;
 import akka.actor.ActorRef;
 import reliable_multicast.messages.FlushMsg;
 import reliable_multicast.messages.Message;
 import reliable_multicast.messages.StopMulticastMsg;
 import reliable_multicast.messages.ViewChangeMsg;
+import reliable_multicast.utils.Config;
 import scala.concurrent.duration.Duration;
 
 

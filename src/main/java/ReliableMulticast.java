@@ -16,8 +16,8 @@ import reliable_multicast.Participant;
 import reliable_multicast.messages.CrashMsg;
 import reliable_multicast.messages.JoinRequestMsg;
 import reliable_multicast.messages.ReviveMsg;
+import reliable_multicast.utils.Config;
 import reliable_multicast.BaseParticipant.SendMulticastMsg;
-import reliable_multicast.Config;
 import reliable_multicast.EventsController.Event;
 import scala.concurrent.duration.Duration;
 
@@ -35,7 +35,7 @@ public class ReliableMulticast {
 		
 		try {
 			FileReader fr;
-			fr = new FileReader("/home/lubuntu/Desktop/test.json");
+			fr = new FileReader("/home/lubuntu/Desktop/test1.json");
 
 			Config conf1 = gson.fromJson(fr, Config.class);
 			System.out.println(gson.toJson(conf1));
@@ -50,7 +50,9 @@ public class ReliableMulticast {
 	    		system.actorOf(GroupManager.props(0,
 	    										  conf1.isManual_mode(),
 	    										  conf1.getUnderlyingEvents(),
-	    										  conf1.getUnderlyingSteps()),
+	    										  conf1.getUnderlyingSenders(),
+	    										  conf1.getUnderlyingRisen(),
+	    										  conf1.getUnderlyingViews()),
 	    					   "gm");
 //		Maybe this can be invoked when the GM is initiated...
 //	    groupManager.tell(new CheckViewMsg(), null);
