@@ -1,5 +1,6 @@
 package reliable_multicast;
 
+
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -9,7 +10,11 @@ import java.util.concurrent.TimeUnit;
 
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
+<<<<<<< HEAD
+=======
 
+
+>>>>>>> master
 import reliable_multicast.messages.FlushMsg;
 import reliable_multicast.messages.Message;
 import reliable_multicast.messages.StopMulticastMsg;
@@ -163,7 +168,6 @@ public class BaseParticipant extends AbstractActor {
 					this.id,
 					this.id);
 			
-			// resume multicasting
 			this.canSend = true;
 			this.scheduleMulticast();
 		}
@@ -201,7 +205,6 @@ public class BaseParticipant extends AbstractActor {
 		if (this.manualMode)
 			return;
 		int time = new Random().nextInt(MULTICAST_INTERLEAVING);
-		
 		this.getContext().getSystem().scheduler()
 			.scheduleOnce(Duration.create(time,
 					TimeUnit.SECONDS),
@@ -218,7 +221,6 @@ public class BaseParticipant extends AbstractActor {
 		// this node cannot send message
 		// until this one is completed
 		this.canSend = false;
-
 		Message message = new Message(this.id,
 				this.multicastId,
 				false);

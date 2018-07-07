@@ -1,16 +1,22 @@
 package reliable_multicast;
 
 import java.util.HashSet;
+<<<<<<< HEAD
 import java.util.Map;
+=======
 import scala.concurrent.duration.Duration;
+>>>>>>> master
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import akka.actor.ActorRef;
 import akka.actor.Props;
+<<<<<<< HEAD
 import reliable_multicast.BaseParticipant.SendMulticastMsg;
+=======
 import reliable_multicast.messages.AliveMsg;
 import reliable_multicast.messages.CheckViewMsg;
+>>>>>>> master
 import reliable_multicast.messages.CrashMsg;
 import reliable_multicast.messages.FlushMsg;
 import reliable_multicast.messages.JoinRequestMsg;
@@ -18,8 +24,13 @@ import reliable_multicast.messages.Message;
 import reliable_multicast.messages.StopMulticastMsg;
 import reliable_multicast.messages.ViewChangeMsg;
 
+<<<<<<< HEAD
 public class GroupManager extends EventsController {
 	
+=======
+public class GroupManager extends BaseParticipant {
+
+>>>>>>> master
 	// id generator used for ID assignment to
 	// nodes joining
 	private int idPool;
@@ -27,8 +38,14 @@ public class GroupManager extends EventsController {
 	private Set<ActorRef> alivesReceived;
 	private static final int ALIVE_TIMEOUT = 
 			BaseParticipant.MULTICAST_INTERLEAVING / 2;
+<<<<<<< HEAD
 	
 	private void initGroupManager(int id) {
+=======
+
+  public GroupManager(int id) {
+		super();
+>>>>>>> master
 		this.id = id;
 		this.aliveProcesses
 		    .addIdRefAssoc(this.id, this.getSelf());
@@ -53,6 +70,7 @@ public class GroupManager extends EventsController {
 
 		this.getSelf().tell(new CheckViewMsg(), this.getSelf());
 	}
+<<<<<<< HEAD
 	
 	/**
 	 * Constructor thought to be used when manual
@@ -106,15 +124,27 @@ public class GroupManager extends EventsController {
 	
 	public Set<ActorRef> getAlivesReceived() {
 		return new HashSet<>(this.alivesReceived);
+=======
+
+	public static Props props(int id) {
+		return Props.create(GroupManager.class, () -> new GroupManager(id));
+>>>>>>> master
 	}
-	
+
 	private void onJoinRequestMsg(JoinRequestMsg request) {
 		/*
+<<<<<<< HEAD
 		 System.out.printf("%d P-%s P-%s INFO join_request\n",
 				System.currentTimeMillis(),
 				this.getSelf().path().name(),
 				this.getSender().path().name());
 		*/
+=======
+		 * System.out.printf("%d P-%s P-%s INFO join_request\n",
+		 * System.currentTimeMillis(), this.getSelf().path().name(),
+		 * this.getSender().path().name());
+		 */
+>>>>>>> master
 		JoinRequestMsg response = new JoinRequestMsg(this.idPool);
 		this.getSender().tell(response, this.getSelf());
 		
@@ -130,12 +160,16 @@ public class GroupManager extends EventsController {
 		newView.add(this.getSender());
 		onViewChange(newView);
 	}
+<<<<<<< HEAD
 	
 	@Override
 	protected void onReceiveMessage(Message message) {
 		super.onReceiveMessage(message);
 	}
 	
+=======
+
+>>>>>>> master
 	private void onViewChange(Set<ActorRef> newMembers) {
 		// tell every member in the view to stop
 		// generating new multicasts
@@ -147,9 +181,7 @@ public class GroupManager extends EventsController {
 		// framework, we are (we should) be safe not
 		// send the view change before acknowledging
 		// everyone has stopped sending multicasts.
-		
-		this.tempView = new View(this.tempView.id + 1,
-				newMembers);
+		this.tempView = new View(this.tempView.id + 1, newMembers);
 		System.out.printf("%d P-%d P-%d INFO change-view: %s\n",
 				System.currentTimeMillis(),
 				this.id,
@@ -247,14 +279,18 @@ public class GroupManager extends EventsController {
 				.match(FlushMsg.class, this::onFlushMsg)
 				.match(SendMulticastMsg.class, this::onSendMulticastMsg)
 				.match(Message.class, this::onReceiveMessage)
-				.match(CheckViewMsg.class, this::onCheckViewMsg)
-				.match(AliveMsg.class, this::onAliveMsg)
+<<<<<<< HEAD
+//				.match(CheckViewMsg.class,  this::onCheckViewMsg)
 				// temporary: crashes should be automatically
 				// notified after a timeout
 				.match(CrashMsg.class, this::onCrashedMessage)
 				// handle (receiving) the step message defined in
 				// the EventsController
-				.match(SendStepMsg.class, this::onSendStepMsg)				
+				.match(SendStepMsg.class, this::onSendStepMsg)
+=======
+				.match(CheckViewMsg.class, this::onCheckViewMsg)
+				.match(AliveMsg.class, this::onAliveMsg)
+>>>>>>> master
 				.build();
 	}
 }
