@@ -1,6 +1,8 @@
 package reliable_multicast;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import scala.concurrent.duration.Duration;
 import java.util.Set;
@@ -186,15 +188,20 @@ public class GroupManager extends EventsController {
 			 * New members are current members minus the ones
 			 * from which the heartbeat has not been received.
 			 */
-			System.out.printf("%d P-%d P-%d INFO Some node crashed.\n",
-					System.currentTimeMillis(),
-					this.id,
-					this.id);
 			Set<ActorRef> newView = new HashSet<>(this.tempView.members);
+			List<String> nodesCrashed = new ArrayList<>();
+			int pid = 0;
 			for (ActorRef actor : alivesReceived) {
 				newView.remove(actor);
+				pid = this.aliveProcesses.getIdByActor(actor);
+				nodesCrashed.add("p" + ((Integer)pid).toString());
 				onCrashedProcess(actor);
 			}
+			System.out.printf("%d P-%d P-%d INFO nodes: %s crashed.\n",
+					System.currentTimeMillis(),
+					this.id,
+					this.id,
+					nodesCrashed.toString());
 			alivesReceived.clear();
 			onViewChange(newView);
 		} else {
