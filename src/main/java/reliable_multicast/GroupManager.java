@@ -19,9 +19,22 @@ import reliable_multicast.messages.ViewChangeMsg;
 public class GroupManager extends EventsController {
 	
 	// id generator used for ID assignment to
-	// nodes joining
+	// nodes joining the system
 	private int idPool;
 	
+	/*
+	 * alivesReceives will contain all actors
+	 * in the system. On a regular basis each
+	 * actor will be asked to answer to an heartbeat
+	 * message (AliveMsg). If it does, the
+	 * actor is removed from the set.
+	 * 
+	 * alivesReceived will therefor contain
+	 * actors that haven't sent back
+	 * an answer to the hearbeat within
+	 * a given time slot, so they are
+	 * seen as crashed nodes.
+	 */
 	private Set<ActorRef> alivesReceived;
 	private static final int ALIVE_TIMEOUT = 
 			BaseParticipant.MULTICAST_INTERLEAVING / 2;
@@ -145,7 +158,6 @@ public class GroupManager extends EventsController {
 		// framework, we are (we should) be safe not
 		// send the view change before acknowledging
 		// everyone has stopped sending multicasts.
-		
 		this.tempView = new View(this.tempView.id + 1,
 				newMembers);
 		System.out.printf("%d P-%d P-%d INFO change-view: %s\n",
@@ -178,7 +190,7 @@ public class GroupManager extends EventsController {
 					System.currentTimeMillis(),
 					this.id,
 					this.id);
-			Set<ActorRef> newView = new HashSet<>(this.view.members);
+			Set<ActorRef> newView = new HashSet<>(this.tempView.members);
 			for (ActorRef actor : alivesReceived) {
 				newView.remove(actor);
 				onCrashedProcess(actor);
@@ -186,7 +198,6 @@ public class GroupManager extends EventsController {
 			alivesReceived.clear();
 			onViewChange(newView);
 		} else {
-			
 			HashSet<ActorRef> participants =
 					new HashSet<>(this.tempView.members);
 			participants.remove(this.getSelf()); // exclude the group manager

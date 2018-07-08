@@ -66,8 +66,10 @@ public class Participant extends BaseParticipant {
 		if (this.crashed)
 			return;
 		
-		if (this.receiveViewChangeAndCrash)
+		if (this.receiveViewChangeAndCrash) {
+			this.receiveViewChangeAndCrash = false;
 			this.crashAfterViewChange(viewChange);
+		}
 		else
 			super.onViewChangeMsg(viewChange);
 	}
@@ -90,7 +92,7 @@ public class Participant extends BaseParticipant {
 				member.tell(message, this.getSelf());
 			}
 		}
-		this.getSelf().tell(new CrashMsg(), this.getSelf());
+		this.crash();
 		// FLUSHES are not sent
 	}
 
@@ -112,23 +114,33 @@ public class Participant extends BaseParticipant {
 			// it won't crash suddenly).
 			// Then let the node crash.
 			this.receiveMessageAndCrash = false;
-			this.getSelf().tell(new CrashMsg(), this.getSelf());
+			this.crash();
 		}
 	}
 	
-	// EXT: external behavior message handlers --
-	
-	private void onCrashMsg(CrashMsg crashMsg) {
+	private void crash() {
 		this.crashed = true;
 		this.canSend = false;
 		System.out.printf("%d P-%d P-%s CRASHED\n",
 				System.currentTimeMillis(),
 				this.id,
 				this.id);
-		// don't tell about the crash to anybody,
-		// now the heartbeat should notify the
-		// groupmanager
-		//this.groupManager.tell(new CrashMsg(), this.getSelf());
+	}
+	
+	// EXT: external behavior message handlers --
+	
+	/**
+	 * This message was used before having the
+	 * event-handler system based on config.
+	 * 
+	 * Now the message is kept to let
+	 * the node crash from the outside and without
+	 * a config approach.
+	 * 
+	 * @param crashMsg
+	 */
+	private void onCrashMsg(CrashMsg crashMsg) {
+		this.crash();
 	}
 
     private void onAliveMsg(AliveMsg aliveMsg) {			
@@ -174,7 +186,7 @@ public class Participant extends BaseParticipant {
 		}
 		// Do not send stable messages.
 		// Crash instead
-		this.getSelf().tell(new CrashMsg(), this.getSelf());
+		this.crash();
 	}
 	
 	/**
@@ -214,7 +226,7 @@ public class Participant extends BaseParticipant {
 		receiver.tell(message, this.getSelf());
 		
 		// let the sender crash
-		this.getSelf().tell(new CrashMsg(), this.getSelf());
+		this.crash();
 	}
 	
 	protected void onSendMutlicastCrashMsg(MulticastCrashMsg crashMsg) {
