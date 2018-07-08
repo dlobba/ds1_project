@@ -1,17 +1,18 @@
 package reliable_multicast.utils;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import reliable_multicast.EventsController;
 import reliable_multicast.EventsController.Event;
 
 public class EventsList {
 
-	private final Map<String, Event> events;
+	private final Map<String, Map<Event, Set<Integer>>> events;
 	private final Map<Integer, Integer> processLastCall;
 	public EventsList() {
 		super();
@@ -55,7 +56,11 @@ public class EventsList {
 	 * @return
 	 */
 	public boolean isSendingEvent(String eventLabel) {
-		Event event = this.events.get(eventLabel);
+		Map<Event, Set<Integer>> eventList =
+				this.events.get(eventLabel);
+		Event event = eventList.keySet()
+							   .iterator()
+							   .next();
 		if (event == null)
 			return false;
 		if (event == Event.MULTICAST_N_CRASH ||
@@ -65,10 +70,32 @@ public class EventsList {
 	}
 	
 	public Event getEvent(String eventLabel) {
-		return this.events.get(eventLabel);
+		Map<Event, Set<Integer>> eventList =
+				this.events.get(eventLabel);
+		Event event = eventList.keySet()
+							   .iterator()
+							   .next();
+		return event;
 	}
 	
-	public void fromMap(Map<String, Event> events) {
+	/**
+	 * Given the event label, return the
+	 * list of processes that are targeted by the
+	 * event.
+	 * 
+	 * @param eventLabel
+	 * @return
+	 */
+	public Set<Integer> getEventReceivers(String eventLabel) {
+		Map<Event, Set<Integer>> eventList =
+				this.events.get(eventLabel);
+		Event event = eventList.keySet()
+							   .iterator()
+							   .next();
+		return eventList.get(event);
+	}
+	
+	public void fromMap(Map<String, Map<Event, Set<String>>> events) {
 		if (events == null)
 			return;
 
@@ -77,23 +104,59 @@ public class EventsList {
 		
 		Iterator<String> labelIterator =
 					events.keySet().iterator();
+		Map<Event, Set<Integer>> tmpEventProcessMap;
 		while (labelIterator.hasNext()) {
-			tmpLabel = labelIterator.next();
+			tmpLabel = labelIterator.next();			
 			Matcher labelMatcher = labelPattern.matcher(tmpLabel);
 			if (labelMatcher.matches()) {
-				this.events.put(tmpLabel,
-						events.get(tmpLabel));
+				tmpEventProcessMap = this.eventProcessFromMap(events.get(tmpLabel));
+				if (tmpEventProcessMap != null)
+					this.events.put(tmpLabel, tmpEventProcessMap);
 				/*
 				 *  Add the process to the map.
 				 *  We need to track this process.
 				 */
 				this.processLastCall
 					.put(Integer.parseInt(labelMatcher.group(1)),
-										 -1);
+						 -1);
 			}
 		}
 	}
 	
-	
-	
+	public Map<Event, Set<Integer>> eventProcessFromMap(
+			Map<Event, Set<String>> processMap) {
+		if (processMap == null)
+			return null;
+		
+		Pattern labelPattern = Pattern.compile("^p([0-9]+)$");
+		Iterator<Event> eventIterator = processMap.keySet().iterator();
+		if (!eventIterator.hasNext())
+			return null;
+		
+		Event event = eventIterator.next();
+		// the event is meaningful
+		if (event == null) {
+			System.out.println("UNKNOWN EVENT - it will be ignored.");
+			return null;
+		}
+		
+		Iterator<String> processIterator =
+				processMap.get(event)
+						  .iterator();
+
+		Set<Integer> processes = new HashSet<>();
+		String tmpProcess;
+		Matcher processMatch;
+		while (processIterator.hasNext()) {
+			tmpProcess = processIterator.next();
+			processMatch = labelPattern.matcher(tmpProcess);
+			if (processMatch.matches()) {
+				processes.add(
+						Integer.parseInt(processMatch.group(1)));
+			}
+		}
+		Map<Event, Set<Integer>> tmpMap = new HashMap<>();
+		tmpMap.put(event, processes);
+		return tmpMap;
+	}
 }

@@ -45,7 +45,7 @@ public class ReliableMulticast {
 		// Create the actor system
 		System.out.print("Reliable multicast started!\n");
 	    final ActorSystem system = ActorSystem.create("multicast_system");
-	    
+
 	    final ActorRef groupManager =
 	    		system.actorOf(GroupManager.props(0,
 	    										  conf1.isManual_mode(),

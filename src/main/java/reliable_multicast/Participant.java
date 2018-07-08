@@ -12,6 +12,7 @@ public class Participant extends BaseParticipant {
 	protected boolean crashed;
 	protected boolean receiveMessageAndCrash;
 	protected boolean receiveViewChangeAndCrash;
+	private String ignoreMessageLabel;
 	
 	// Constructors
 	public Participant(ActorRef groupManager, boolean manualMode) {
@@ -109,7 +110,8 @@ public class Participant extends BaseParticipant {
 			return;
 		super.onReceiveMessage(message);
 
-		if (this.receiveMessageAndCrash) {
+		if (this.receiveMessageAndCrash &&
+			!this.ignoreMessageLabel.equals(message.getLabel())) {
 			// remove the flag (so when the node revives
 			// it won't crash suddenly).
 			// Then let the node crash.
@@ -241,12 +243,25 @@ public class Participant extends BaseParticipant {
 	}
 	
 	protected void onReceivingMulticastCrashMsg(ReceivingCrashMsg crashMsg) {
+		this.ignoreMessageLabel = crashMsg.eventLabel;
 		switch (crashMsg.type) {
 		case RECEIVE_MULTICAST_N_CRASH:
 			this.receiveMessageAndCrash = true;
+			System.out
+				  .printf("%d P-%d P-%s INFO process set to crash on" +
+						  " next message receiving. \n",
+						  System.currentTimeMillis(),
+						  this.id,
+						  this.id);
 			break;
 		case RECEIVE_VIEW_N_CRASH:
 			this.receiveViewChangeAndCrash = true;
+			System.out
+			  .printf("%d P-%d P-%s INFO process set to crash on" +
+					  " next view-change message receiving. \n",
+					  System.currentTimeMillis(),
+					  this.id,
+					  this.id);
 			break;
 		}
 	}

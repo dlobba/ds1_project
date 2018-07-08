@@ -77,7 +77,7 @@ public class GroupManager extends EventsController {
 	 */
 	public GroupManager(int id,
 						boolean manualMode,
-						Map<String, Event> events,
+						Map<String, Map<Event, Set<String>>> events,
 						Map<Integer, Set<String>> sendOrder,
 						Map<Integer, Set<String>> risenOrder,
 						Map<Integer, Set<String>> views) {
@@ -98,7 +98,7 @@ public class GroupManager extends EventsController {
 	
 	public static Props props(int id,
 							  boolean manualMode,
-							  Map<String, Event> events,
+							  Map<String, Map<Event, Set<String>>> events,
 							  Map<Integer, Set<String>> sendOrder,
 							  Map<Integer, Set<String>> risenOrder,
 							  Map<Integer, Set<String>> views) {

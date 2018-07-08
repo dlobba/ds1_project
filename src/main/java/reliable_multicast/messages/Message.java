@@ -48,6 +48,10 @@ public class Message implements Serializable {
 		return true;
 	}
 	
+	public String getLabel() {
+		return "p" + senderID + "m" + messageID;
+	}
+	
 	@Override
 	public String toString() {
 		return "p" + senderID + "m" + messageID;
