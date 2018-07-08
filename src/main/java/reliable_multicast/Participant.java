@@ -3,8 +3,8 @@ package reliable_multicast;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import reliable_multicast.messages.*;
-import reliable_multicast.messages.crash_messages.MulticastCrashMsg;
-import reliable_multicast.messages.crash_messages.ReceivingCrashMsg;
+import reliable_multicast.messages.events_messages.MulticastCrashMsg;
+import reliable_multicast.messages.events_messages.ReceivingCrashMsg;
 
 public class Participant extends BaseParticipant {
 	
@@ -125,7 +125,10 @@ public class Participant extends BaseParticipant {
 				System.currentTimeMillis(),
 				this.id,
 				this.id);
-		this.groupManager.tell(new CrashMsg(), this.getSelf());
+		// don't tell about the crash to anybody,
+		// now the heartbeat should notify the
+		// groupmanager
+		//this.groupManager.tell(new CrashMsg(), this.getSelf());
 	}
 
     private void onAliveMsg(AliveMsg aliveMsg) {			

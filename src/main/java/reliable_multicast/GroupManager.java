@@ -8,10 +8,8 @@ import java.util.concurrent.TimeUnit;
 
 import akka.actor.ActorRef;
 import akka.actor.Props;
-import reliable_multicast.BaseParticipant.SendMulticastMsg;
 import reliable_multicast.messages.AliveMsg;
 import reliable_multicast.messages.CheckViewMsg;
-import reliable_multicast.messages.CrashMsg;
 import reliable_multicast.messages.FlushMsg;
 import reliable_multicast.messages.JoinRequestMsg;
 import reliable_multicast.messages.Message;
@@ -181,10 +179,11 @@ public class GroupManager extends EventsController {
 					this.id,
 					this.id);
 			Set<ActorRef> newView = new HashSet<>(this.view.members);
-			for (ActorRef actor : alivesReceived) 
+			for (ActorRef actor : alivesReceived) {
 				newView.remove(actor);
+				onCrashedProcess(actor);
+			}
 			alivesReceived.clear();
-			
 			onViewChange(newView);
 		} else {
 			
@@ -195,7 +194,7 @@ public class GroupManager extends EventsController {
 			for (ActorRef participant : participants) {
 				alivesReceived.add(participant);
 				participant.tell(new AliveMsg(this.aliveId, this.id),
-						this.getSelf());
+								 this.getSelf());
 			}
 			aliveId++;
 		}
@@ -219,25 +218,6 @@ public class GroupManager extends EventsController {
 				msg.toString());
 	}
 	
-	/*
-	 * this is just temporary, when a node crashes it sends
-	 * a crashed message to the gm who issues a view change
-	 */
-	private void onCrashedMessage(CrashMsg msg) {
-		Set<ActorRef> newView = new HashSet<>(this.tempView.members);
-		newView.remove(this.getSender());
-		int id = this.aliveProcesses
-					 .getIdByActor(this.getSender());
-		// add the crashed process to the crashedProcesses
-		// map, and remove it from the alivesProcesses map.
-		// The former allows to retrieve the actor Id of
-		// the process to revive (using its previously associated
-		// id).
-		this.crashedProcesses.addIdRefAssoc(id, this.getSender());
-		this.aliveProcesses.removeIdRefEntry(id);
-		onViewChange(newView);
-	}
-	
 	@Override
 	public Receive createReceive() {
 		return receiveBuilder()
@@ -249,9 +229,6 @@ public class GroupManager extends EventsController {
 				.match(Message.class, this::onReceiveMessage)
 				.match(CheckViewMsg.class, this::onCheckViewMsg)
 				.match(AliveMsg.class, this::onAliveMsg)
-				// temporary: crashes should be automatically
-				// notified after a timeout
-				.match(CrashMsg.class, this::onCrashedMessage)
 				// handle (receiving) the step message defined in
 				// the EventsController
 				.match(SendStepMsg.class, this::onSendStepMsg)				

@@ -12,9 +12,9 @@ import java.util.concurrent.TimeUnit;
 import akka.actor.ActorRef;
 import reliable_multicast.messages.Message;
 import reliable_multicast.messages.ReviveMsg;
-import reliable_multicast.messages.crash_messages.*;
-import reliable_multicast.messages.crash_messages.MulticastCrashMsg.MutlicastCrashType;
-import reliable_multicast.messages.crash_messages.ReceivingCrashMsg.ReceivingCrashType;
+import reliable_multicast.messages.events_messages.*;
+import reliable_multicast.messages.events_messages.MulticastCrashMsg.MutlicastCrashType;
+import reliable_multicast.messages.events_messages.ReceivingCrashMsg.ReceivingCrashType;
 import reliable_multicast.utils.EventsList;
 import reliable_multicast.utils.IdRefMap;
 import reliable_multicast.utils.StepProcessMap;
@@ -93,6 +93,18 @@ public abstract class EventsController extends BaseParticipant {
 	protected void onReceiveMessage(Message message) {
 		super.onReceiveMessage(message);
 		this.events.updateProcessLastCall(message.senderID, message.messageID);
+	}
+	
+	protected void onCrashedProcess(ActorRef process) {
+		int id = this.aliveProcesses
+					 .getIdByActor(process);
+		// add the crashed process to the crashedProcesses
+		// map, and remove it from the alivesProcesses map.
+		// The former allows to retrieve the actor Id of
+		// the process to revive (using its previously associated
+		// id).
+		this.crashedProcesses.addIdRefAssoc(id, process);
+		this.aliveProcesses.removeIdRefEntry(id);
 	}
 	
 	/**
@@ -362,7 +374,7 @@ public abstract class EventsController extends BaseParticipant {
 							  .getActorById(processId);
 		if (sender == null)
 			return;
-		CrashMessage crashMsg = null;
+		EventMessage crashMsg = null;
 		switch (event) {
 		case MULTICAST_N_CRASH:
 			crashMsg = new MulticastCrashMsg(
