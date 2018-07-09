@@ -31,7 +31,7 @@ public class ReliableMulticast {
 		    		"gm");
 	    } else {
 	    	final ActorRef participant = system.actorOf(Participant.props(),
-		    		"p1");
+		    		"p" + Integer.toString(id));
 	    }
 	}
 }
