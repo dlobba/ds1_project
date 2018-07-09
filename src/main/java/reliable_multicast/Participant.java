@@ -1,5 +1,9 @@
 package reliable_multicast;
 
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
+
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import reliable_multicast.messages.*;
@@ -14,13 +18,24 @@ public class Participant extends BaseParticipant {
 	protected boolean receiveViewChangeAndCrash;
 	private String ignoreMessageLabel;
 	
+	/*
+	 * This will be called in the constructor by issuing
+	 * the super() method.
+	 * 
+	 * @see reliable_multicast.BaseParticipant#resetParticipant()
+	 */
+	@Override
+	protected void resetParticipant() {
+		super.resetParticipant();
+		this.receiveMessageAndCrash = false;
+		this.receiveViewChangeAndCrash = false;
+	}
+
 	// Constructors
 	public Participant(ActorRef groupManager, boolean manualMode) {
 		super(manualMode);
 		this.groupManager = groupManager;
 		this.crashed = false;
-		this.receiveMessageAndCrash = false;
-		this.receiveViewChangeAndCrash = false;
 		this.groupManager.tell(new JoinRequestMsg(),
 				this.getSelf());
 	}
@@ -121,6 +136,7 @@ public class Participant extends BaseParticipant {
 	}
 	
 	private void crash() {
+		this.resetParticipant();
 		this.crashed = true;
 		this.canSend = false;
 		System.out.printf("%d P-%d P-%s CRASHED\n",
@@ -180,6 +196,7 @@ public class Participant extends BaseParticipant {
 
 		Message message = new Message(this.id,
 				this.multicastId,
+				this.tempView.id,
 				false);
 		this.multicastId += 1;
 		
@@ -203,30 +220,39 @@ public class Participant extends BaseParticipant {
 		// until this one is completed
 		this.canSend = false;
 
-		ActorRef[] members = this.view.members.toArray(new ActorRef[0]);
-		if (members.length < 2) {
+		Set<ActorRef> members = this.view.members;
+		if (members.size() < 3) {
 			System.out.printf("%d P-%d P-%s WARNING: too few view members."
-					+ "Crash denied. Multicast aborted. \n",
+					+ " Two participants and the group manager are required."
+					+ " Crash denied. Multicast aborted. \n",
 					System.currentTimeMillis(),
 					this.id,
 					this.id);
 			return;
 		}
-		
+
+		/*
+		 * Avoid choosing the group manager
+		 * of self as receiver.
+		 */
+		Iterator<ActorRef> memberIterator = members.iterator();
+		ActorRef receiver = null;
+		boolean found = false;
+		while (memberIterator.hasNext() && !found) {
+			receiver = memberIterator.next();
+			
+			if (!(receiver.equals(this.getSelf()) ||
+				  receiver.equals(this.groupManager)))
+				found = true;
+		}
+		System.out.println(receiver.toString());
 		Message message = new Message(this.id,
 				this.multicastId,
+				this.tempView.id,
 				false);
 		this.multicastId += 1;
-		ActorRef receiver = members[0];
-		
-		// manage the unlucky case in which
-		// the only node seeing the message is
-		// the crashing node...
-		if (receiver.equals(this.getSelf()))
-			receiver = members[1];
-		
 		receiver.tell(message, this.getSelf());
-		
+
 		// let the sender crash
 		this.crash();
 	}

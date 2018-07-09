@@ -40,17 +40,21 @@ public class BaseParticipant extends AbstractActor {
 	protected Set<FlushMsg> flushesReceived;
 	protected Set<Message> messagesUnstable;
 	
-	public BaseParticipant(boolean manualMode) {
-		super();
+	protected void resetParticipant() {
 		this.id = -1;
 		this.multicastId = 0;
 		this.aliveId = 0;
+		this.canSend = false;
 		this.view = new View(-1);
 		this.tempView = new View(-1);
-		this.canSend = false;
-		this.manualMode = manualMode;
 		this.messagesUnstable = new HashSet<>();
 		this.flushesReceived = new HashSet<>();
+	}
+	
+	public BaseParticipant(boolean manualMode) {
+		super();
+		this.resetParticipant();
+		this.manualMode = manualMode;
 	}
 	
 	public BaseParticipant(Config config) {
@@ -221,6 +225,7 @@ public class BaseParticipant extends AbstractActor {
 
 		Message message = new Message(this.id,
 				this.multicastId,
+				this.tempView.id,
 				false);
 		this.multicastId += 1;
 		
