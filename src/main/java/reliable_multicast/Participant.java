@@ -7,18 +7,18 @@ public class Participant extends BaseParticipant {
 	
 	protected ActorRef groupManager;
 	protected boolean crashed;
+	protected String groupManagerPath = "akka.tcp://multicast_system@127.0.0.1:10000/user/gm";
 	
 	// Constructors
-	public Participant(ActorRef groupManager) {
+	public Participant() {
 		super();
-		this.groupManager = groupManager;
 		this.crashed = false;
 		
-		this.groupManager.tell(new JoinRequestMsg(), this.getSelf());
+		getContext().actorSelection(groupManagerPath).tell(new JoinRequestMsg(), this.getSelf());
 	}
 	
-	public static Props props(ActorRef groupmanager) {
-		return Props.create(Participant.class, () -> new Participant(groupmanager));
+	public static Props props() {
+		return Props.create(Participant.class, () -> new Participant());
 	}
 	
 	//--------------------------------
@@ -31,7 +31,8 @@ public class Participant extends BaseParticipant {
 	private void onJoinMsg(JoinRequestMsg joinResponse) {
 		if (this.crashed)
 			return;
-		this.id = joinResponse.idAssigned;
+		//this.id = joinResponse.idAssigned;
+		this.groupManager = this.getSender();
 		System.out.printf("%d P-%d P-%s JOIN-ASSOC\n",
 				System.currentTimeMillis(),
 				this.id,
@@ -83,6 +84,7 @@ public class Participant extends BaseParticipant {
 			.tell(
 				new AliveMsg(this.aliveId, this.id),
 				this.getSelf());
+	}
 	
 		@Override
 		public Receive createReceive() {
