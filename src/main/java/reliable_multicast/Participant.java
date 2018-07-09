@@ -136,13 +136,13 @@ public class Participant extends BaseParticipant {
 	}
 	
 	private void crash() {
-		this.resetParticipant();
-		this.crashed = true;
-		this.canSend = false;
-		System.out.printf("%d P-%d P-%s CRASHED\n",
+		System.out.printf("%d P-%d P-%d CRASHED\n",
 				System.currentTimeMillis(),
 				this.id,
 				this.id);
+		this.resetParticipant();
+		this.crashed = true;
+		this.canSend = false;
 	}
 	
 	// EXT: external behavior message handlers --
@@ -260,9 +260,20 @@ public class Participant extends BaseParticipant {
 	protected void onSendMutlicastCrashMsg(MulticastCrashMsg crashMsg) {
 		switch (crashMsg.type) {
 		case MULTICAST_N_CRASH:
+			System.out
+			  .printf("%d P-%d P-%s INFO process will multicast then crash\n",
+					  System.currentTimeMillis(),
+					  this.id,
+					  this.id);
 			this.multicastAndCrash();
 			break;
 		case MULTICAST_ONE_N_CRASH:
+			System.out
+			  .printf("%d P-%d P-%s INFO process will multicast to one" +
+					  " particpant then crash\n",
+					  System.currentTimeMillis(),
+					  this.id,
+					  this.id);
 			this.multicastOneAndCrash();
 			break;
 		}
