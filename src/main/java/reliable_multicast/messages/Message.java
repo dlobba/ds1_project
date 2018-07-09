@@ -8,27 +8,35 @@ public class Message implements Serializable {
 	public final int senderID;
 	public final int messageID;
 	public final boolean stable;
+	public final int viewId;
 	
-	public Message(int pID, int mID, boolean stable) {
+	public Message(int pID, int mID, int viewId, boolean stable) {
 		this.senderID = pID;
 		this.messageID = mID;
+		this.viewId = viewId;
 		this.stable = stable;
 	}
 	
 	public Message(Message message, boolean stable) {
 		this.senderID = message.senderID;
 		this.messageID = message.messageID;
+		this.viewId = message.viewId;
 		this.stable = stable;
 	}
 
 	// this method is required for hash sets
 	// to work
+	public String getLabel() {
+		return "p" + senderID + "m" + messageID;
+	}
+	
 	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
 		result = prime * result + messageID;
 		result = prime * result + senderID;
+		result = prime * result + viewId;
 		return result;
 	}
 
@@ -45,15 +53,14 @@ public class Message implements Serializable {
 			return false;
 		if (senderID != other.senderID)
 			return false;
+		if (viewId != other.viewId)
+			return false;
 		return true;
-	}
-	
-	public String getLabel() {
-		return "p" + senderID + "m" + messageID;
 	}
 	
 	@Override
 	public String toString() {
-		return "p" + senderID + "m" + messageID;
+		return "p" + senderID + "m"
+				+ messageID + ":v" + this.viewId;
 	}
 };

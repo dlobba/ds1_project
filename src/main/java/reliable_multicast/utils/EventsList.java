@@ -58,6 +58,8 @@ public class EventsList {
 	public boolean isSendingEvent(String eventLabel) {
 		Map<Event, Set<Integer>> eventList =
 				this.events.get(eventLabel);
+		if (eventList == null)
+			return false;
 		Event event = eventList.keySet()
 							   .iterator()
 							   .next();
@@ -72,6 +74,8 @@ public class EventsList {
 	public Event getEvent(String eventLabel) {
 		Map<Event, Set<Integer>> eventList =
 				this.events.get(eventLabel);
+		if (eventList == null)
+			return null;
 		Event event = eventList.keySet()
 							   .iterator()
 							   .next();
@@ -89,6 +93,8 @@ public class EventsList {
 	public Set<Integer> getEventReceivers(String eventLabel) {
 		Map<Event, Set<Integer>> eventList =
 				this.events.get(eventLabel);
+		if (eventList == null)
+			return new HashSet<>();
 		Event event = eventList.keySet()
 							   .iterator()
 							   .next();

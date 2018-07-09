@@ -93,6 +93,17 @@ public abstract class EventsController extends BaseParticipant {
 	protected void onReceiveMessage(Message message) {
 		super.onReceiveMessage(message);
 		this.events.updateProcessLastCall(message.senderID, message.messageID);
+		
+		/*
+		 * This will allow the group manager
+		 * to manage events in the case one doesn't
+		 * want to use the config file.
+		 * 
+		 * Events can be pushed to event list
+		 * manually.
+		 */
+		if (!this.manualMode)
+			this.triggerEvent(message.getLabel());
 	}
 	
 	protected void onCrashedProcess(ActorRef process) {
@@ -296,9 +307,9 @@ public abstract class EventsController extends BaseParticipant {
 				else {
 					triggeringIds.add(senderId);
 					if (!this.events.isSendingEvent(nextEventLabel) &&
-							!this.events
-								 .getEventReceivers(nextEventLabel)
-								 .contains(senderId))
+						!this.events
+							 .getEventReceivers(nextEventLabel)
+							 .contains(senderId))
 						senders.add(tmpSender);
 					else {
 						System.out.printf("%d P-%d P-%s WARNING process p%d" + 
@@ -345,7 +356,8 @@ public abstract class EventsController extends BaseParticipant {
 			sender.tell(new SendMulticastMsg(), this.getSelf());
 		}
 		for (Integer triggeringId : triggeringIds) {
-			this.triggerEvent(triggeringId);
+			this.triggerEvent(this.events
+								  .getProcessNextLabel(triggeringId));
 		}		
 		for (ActorRef risen : risenList) {
 			risen.tell(new ReviveMsg(), this.getSelf());
@@ -366,8 +378,7 @@ public abstract class EventsController extends BaseParticipant {
 	 * associated with the sender ID).
 	 * 
 	 */
-	protected void triggerEvent(Integer processId) {
-		String eventLabel = this.events.getProcessNextLabel(processId);
+	protected void triggerEvent(String eventLabel) {
 		Event event = this.events.getEvent(eventLabel);
 		Set<Integer> receiversIds = this.events.getEventReceivers(eventLabel);
 
