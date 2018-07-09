@@ -118,9 +118,10 @@ public class BaseParticipant extends AbstractActor {
 				System.currentTimeMillis(),
 				this.id,
 				this.id,
-				viewChange.view.id);
+				viewChange.id);
 		//this.flushesReceived.clear();
-		this.tempView = new View(viewChange.view);
+		this.tempView = new View(viewChange.id,
+								 viewChange.members);
 		this.removeOldFlushes(this.tempView.id);
 		for (Message message : messagesUnstable) {
 			for (ActorRef member : this.tempView.members) {
