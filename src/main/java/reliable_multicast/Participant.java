@@ -14,6 +14,7 @@ public class Participant extends BaseParticipant {
 	
 	protected ActorRef groupManager;
 	protected boolean crashed;
+  
 	protected boolean receiveMessageAndCrash;
 	protected boolean receiveViewChangeAndCrash;
 	private String ignoreMessageLabel;
@@ -63,7 +64,8 @@ public class Participant extends BaseParticipant {
 	private void onJoinMsg(JoinRequestMsg joinResponse) {
 		if (this.crashed)
 			return;
-		this.id = joinResponse.idAssigned;
+		//this.id = joinResponse.idAssigned;
+		this.groupManager = this.getSender();
 		System.out.printf("%d P-%d P-%s JOIN-ASSOC\n",
 				System.currentTimeMillis(),
 				this.id,
