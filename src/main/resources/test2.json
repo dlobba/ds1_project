@@ -1,0 +1,19 @@
+{
+   "manual_mode": true,
+   "senders": {
+       1 : ["p1"],
+       2 : ["p1"]   
+   },
+   "events": {
+       "p1m0" : {"RECEIVE_VIEW_N_CRASH" : ["p2"]},
+       "p1m1" : {"MULTICAST_N_CRASH" : ["p1"]}
+   },
+   "risen": {
+       4 : ["p2"]
+   },
+   "views" : {
+       1 : ["p1", "p2", "p3", "p0"],
+       2 : ["p1", "p2", "p3", "p0"],
+       4 : ["p2", "p3", "p0"]
+   }
+}
