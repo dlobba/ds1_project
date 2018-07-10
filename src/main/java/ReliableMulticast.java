@@ -101,17 +101,5 @@ public class ReliableMulticast {
 											 PARTICIPANT_NAME);
 		}
 		System.out.print("Reliable multicast started!\n");
-<<<<<<< HEAD
-	    final ActorSystem system = ActorSystem.create("multicast_system", config);
-	    
-	    if(isManager == 1) {
-	    	final ActorRef groupManager = system.actorOf(GroupManager.props(0),
-		    		"gm");
-	    } else {
-	    	final ActorRef participant = system.actorOf(Participant.props(),
-		    		"p" + Integer.toString(id));
-	    }
-=======
->>>>>>> networking
 	}
 }
