@@ -236,11 +236,14 @@ public class GroupManager extends EventsController {
 
 	private void onAliveMsg(AliveMsg msg) {
 		alivesReceived.remove(this.getSender());
+		/*
+		//DEBUG:
 		System.out.printf("%d P-%d P-%d received_alive_message %s\n",
 						  System.currentTimeMillis(),
 						  this.id,
 						  msg.senderID,
 						  msg.toString());
+	  	*/
 	}
 
 	/**
