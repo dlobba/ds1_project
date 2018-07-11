@@ -1,5 +1,6 @@
 package reliable_multicast;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -11,14 +12,17 @@ import java.util.concurrent.TimeUnit;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import reliable_multicast.messages.AliveMsg;
-import reliable_multicast.messages.CheckViewMsg;
 import reliable_multicast.messages.FlushMsg;
+import reliable_multicast.messages.GmAliveMsg;
 import reliable_multicast.messages.JoinRequestMsg;
 import reliable_multicast.messages.Message;
 import reliable_multicast.messages.StopMulticastMsg;
 import reliable_multicast.messages.ViewChangeMsg;
 
 public class GroupManager extends EventsController {
+	
+	
+	public static class CheckViewMsg implements Serializable {};
 	
 	// id generator used for ID assignment to
 	// nodes joining the system
@@ -236,6 +240,12 @@ public class GroupManager extends EventsController {
 				msg.toString());
 	}
 	
+	private void onGmAliveMsg(GmAliveMsg msg) {
+		this.getSender()
+			.tell(new GmAliveMsg(),
+				  this.getSelf());
+	}
+	
 	@Override
 	public Receive createReceive() {
 		return receiveBuilder()
@@ -247,6 +257,7 @@ public class GroupManager extends EventsController {
 				.match(Message.class, this::onReceiveMessage)
 				.match(CheckViewMsg.class, this::onCheckViewMsg)
 				.match(AliveMsg.class, this::onAliveMsg)
+				.match(GmAliveMsg.class, this::onGmAliveMsg)
 				// handle (receiving) the step message defined in
 				// the EventsController
 				.match(SendStepMsg.class, this::onSendStepMsg)				
