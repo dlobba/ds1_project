@@ -1,7 +1,5 @@
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
-import java.io.IOException;
 import com.google.gson.Gson;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -15,6 +13,16 @@ public class ReliableMulticast {
 	public final static String SYSTEM_NAME = "multicast_system";
 	public final static String GROUP_MANAGER_NAME = "gm";
 	public final static String PARTICIPANT_NAME = "part";
+	
+	private static boolean hasParticipantProperties(Config config) {
+		if (!config.hasPath("participant.remote_ip"))
+			return false;
+		if (!config.hasPath("participant.remote_port"))
+			return false;
+		if (!config.hasPath("participant.id"))
+			return false;
+		return true;
+	}
 	
 	/*
 	 * The main acts as an initiator for a single node.
@@ -49,38 +57,55 @@ public class ReliableMulticast {
 		 * conf files.
 		 */
 		if (configFilePath.trim().isEmpty()) {
-			System.err.println("ERROR: No akka config resource defined." +
-							   " TERMINATING");
+			System.err.println("\n[ERROR]: No akka config resource defined." +
+							   " TERMINATING...");
 			System.exit(-1);
 		}
 		// Load configuration file
 		Config config = ConfigFactory.load();
 		
-		reliable_multicast.utils.Config eventsConf = new reliable_multicast.utils.Config();
+		reliable_multicast.utils.Config eventsConf =
+				new reliable_multicast.utils.Config();
 		if (!eventsFileName.trim().isEmpty()) {
 			String eventsFilePath = resourcesDir +
 									eventsFileName.trim();
-			System.err.println(eventsFilePath);
+			
+			System.out.printf("Reading events from:\n\t%s\n",
+							  eventsFilePath);
 			try {
 				Gson gson = new Gson();
 				FileReader fr;
 				fr = new FileReader(new File(eventsFilePath));
-				eventsConf = gson.fromJson(fr, reliable_multicast.utils.Config.class);
+				eventsConf = gson.fromJson(fr, reliable_multicast
+											   .utils
+											   .Config.class);
 				System.out.println(gson.toJson(eventsConf));
 				fr.close();
-			} catch (FileNotFoundException e) {
-				e.printStackTrace();
-			} catch (IOException e) {
-				e.printStackTrace();
+			} catch (Exception e) {
+				System.out.println("\n[ERROR]: " +
+								   e.getMessage() +
+								   "\nTERMINATING...");
+				System.exit(-1);
 			}
 		}
 		
-		final ActorSystem system = ActorSystem.create(SYSTEM_NAME, config);
 		boolean isManager = false;
+		boolean isParticipant = hasParticipantProperties(config);
 		if (config.hasPath("participant.is_manager")) {
 			isManager = config.getBoolean("participant.is_manager");
 		}
+		if (! (isManager || isParticipant)) {
+			/*
+			 * Invalid config file, it doesn't
+			 * represent neither a group manager
+			 * nor a participant.
+			 */
+			System.err.println("\n[ERROR]: Invalid config file.\n" +
+							   "TERMINATING...");
+			System.exit(-1);
+		}
 		
+		final ActorSystem system = ActorSystem.create(SYSTEM_NAME, config);
 		if (isManager) {
 			// create group manager
 			system.actorOf(GroupManager.props(0,
@@ -93,12 +118,14 @@ public class ReliableMulticast {
 		} else {
 			String remote_ip = config.getString("participant.remote_ip");
 			String remote_port = config.getString("participant.remote_port");
+			Integer participant_id = config.getInt("participant.id");
 			String remotePath = "akka.tcp://" + SYSTEM_NAME +
 								"@" + remote_ip + ":" + remote_port +
 								"/user/" + GROUP_MANAGER_NAME;
 			system.actorOf(Participant.props(remotePath,
 											 eventsConf.isManual_mode()),
-											 PARTICIPANT_NAME);
+											 PARTICIPANT_NAME +
+											 participant_id.toString());
 		}
 		System.out.print("Reliable multicast started!\n");
 	}

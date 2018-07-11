@@ -22,7 +22,7 @@ import scala.concurrent.duration.Duration;
 
 public abstract class EventsController extends BaseParticipant {
 	
-	public class SendStepMsg implements Serializable {};
+	public static class SendStepMsg implements Serializable {};
 	
 	public enum Event {
 		MULTICAST_ONE_N_CRASH,
@@ -206,6 +206,12 @@ public abstract class EventsController extends BaseParticipant {
 		Set<ActorRef> currentParticipants = new HashSet<>(this.tempView.members);
 		currentParticipants.addAll(this.crashedProcesses.getProcessesActors());
 		if (!currentParticipants.containsAll(participants)) {
+			System.out.printf("%d P-%d P-%s WARNING missing" +
+					  " processes for step-%d\n",
+					  System.currentTimeMillis(),
+					  this.id,
+					  this.id,
+					  tmpStep);
 			return;
 		}
 		

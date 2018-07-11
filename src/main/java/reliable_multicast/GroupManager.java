@@ -63,7 +63,7 @@ public class GroupManager extends EventsController {
 				this.id,
 				this.id,
 				this.view.toString());
-
+		this.canSend = true;
 		this.getSelf().tell(new CheckViewMsg(), this.getSelf());
 	}
 	
