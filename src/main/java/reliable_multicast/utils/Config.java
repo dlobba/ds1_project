@@ -6,7 +6,6 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
-import reliable_multicast.EventsController;
 import reliable_multicast.EventsController.Event;
 
 public class Config {

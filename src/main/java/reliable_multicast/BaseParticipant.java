@@ -21,7 +21,7 @@ import scala.concurrent.duration.Duration;
 public class BaseParticipant extends AbstractActor {
 
 	// --- Messages for internal behavior ---
-	public class SendMulticastMsg implements Serializable {};
+	public static class SendMulticastMsg implements Serializable {};
 	
 	// --------------------------------------
 	
@@ -118,9 +118,10 @@ public class BaseParticipant extends AbstractActor {
 				System.currentTimeMillis(),
 				this.id,
 				this.id,
-				viewChange.view.id);
+				viewChange.id);
 		//this.flushesReceived.clear();
-		this.tempView = new View(viewChange.view);
+		this.tempView = new View(viewChange.id,
+								 viewChange.members);
 		this.removeOldFlushes(this.tempView.id);
 		for (Message message : messagesUnstable) {
 			for (ActorRef member : this.tempView.members) {
@@ -152,7 +153,8 @@ public class BaseParticipant extends AbstractActor {
 				flushMsg.viewID);
 		// if this is true then every operational
 		// node has received all the unstable messages
-		if (this.getFlushSenders(this.tempView.id)
+		if (this.tempView.id == flushMsg.viewID &&
+			this.getFlushSenders(this.tempView.id)
 				.containsAll(this.tempView.members)) {
 			// deliver all mesages up to current view
 			this.deliverAllMessages();

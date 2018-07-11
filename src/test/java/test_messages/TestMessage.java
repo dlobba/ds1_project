@@ -15,36 +15,39 @@ public class TestMessage {
 	
 	@Test
 	public void testMessageEqualityExtremes() {
-		Message m1 = new Message(0, 1, false);
+		Message m1 = new Message(0, 1, -1, false);
 		assertNotEquals(m1, null);
 		assertEquals(m1, m1);	
 	}
 	
 	@Test
 	public void testMessageIdentity() {
-		Message m1 = new Message(0, 1, false);
-		Message m2 = new Message(0, 1, false);
+		Message m1 = new Message(0, 1, -1, false);
+		Message m2 = new Message(0, 1, -1, false);
 		assertEquals(m1, m2);
 	}
 	
 	@Test
 	public void testMessageEqualsId() {
-		Message m1 = new Message(0, 1, false);
+		Message m1 = new Message(0, 1, -1, false);
 		Message m2 = new Message(m1, true);
 		assertEquals(m1, m2);
 	}
 	
 	@Test
 	public void testMessageNotEquals() {
-		Message m1 = new Message(0, 1, false);
-		Message m2 = new Message(0, 2, false);
+		Message m1 = new Message(0, 1, -1, false);
+		Message m2 = new Message(0, 2, -1, false);
+		assertNotEquals(m1, m2);
+		m1 = new Message(0, 1, +1, false);
+		m2 = new Message(0, 1, -1, false);
 		assertNotEquals(m1, m2);
 	}
 	
 	@Test
 	public void testHashSet() {
-		Message m1 = new Message(0, 1, false);
-		Message m2 = new Message(0, 1, false);
+		Message m1 = new Message(0, 1, -1, false);
+		Message m2 = new Message(0, 1, -1, false);
 		
 		Set<Message> hs = new HashSet<>();
 		hs.add(m1);

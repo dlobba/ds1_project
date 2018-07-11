@@ -20,6 +20,7 @@ dependencies {
 
     // AKKA dependencies
     compile group: 'com.typesafe.akka', name: 'akka-actor_2.12', version: '2.5.12'
+    compile group: 'com.typesafe.akka', name: 'akka-remote_2.12', version: '2.5.12'
     testCompile group: 'com.typesafe.akka', name: 'akka-testkit_2.12', version: '2.5.12'
     
     // Use JUnit test framework
@@ -29,3 +30,13 @@ dependencies {
 }
 
 mainClassName = 'ReliableMulticast'
+
+run {
+	standardInput = System.in
+	// read from cli 'config' and put value into config.resource
+	// system property
+	systemProperty "config.resource", System.getProperty("config")
+	systemProperty "events", System.getProperty("json")
+	systemProperty "project_dir", projectDir
+
+}

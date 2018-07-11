@@ -1,16 +1,20 @@
 package reliable_multicast;
 
-import java.util.HashSet;
+import java.io.Serializable;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import reliable_multicast.messages.*;
 import reliable_multicast.messages.events_messages.MulticastCrashMsg;
 import reliable_multicast.messages.events_messages.ReceivingCrashMsg;
+import scala.concurrent.duration.Duration;
 
 public class Participant extends BaseParticipant {
+
+	public static class CheckGmAliveMsg implements Serializable {};
 	
 	protected ActorRef groupManager;
 	protected boolean crashed;
@@ -18,6 +22,10 @@ public class Participant extends BaseParticipant {
 	protected boolean receiveMessageAndCrash;
 	protected boolean receiveViewChangeAndCrash;
 	private String ignoreMessageLabel;
+	private boolean isGmAlive;
+	
+	private static final int ALIVE_TIMEOUT = 
+			BaseParticipant.MULTICAST_INTERLEAVING / 2;
 	
 	/*
 	 * This will be called in the constructor by issuing
@@ -37,21 +45,45 @@ public class Participant extends BaseParticipant {
 		super(manualMode);
 		this.groupManager = groupManager;
 		this.crashed = false;
+		this.isGmAlive = false;
 		this.groupManager.tell(new JoinRequestMsg(),
-				this.getSelf());
+							   this.getSelf());
 	}
 	
 	public Participant(ActorRef groupManager) {
 		this(groupManager, false);
-	}	
-	
-	public static Props props(ActorRef groupmanager, boolean manualMode) {
-		return Props.create(Participant.class,
-				() -> new Participant(groupmanager, manualMode));
 	}
 	
-	public static Props props(ActorRef groupmanager) {
-		return props(groupmanager, false);
+	public Participant(String groupManagerPath, boolean manualMode) {
+		super(manualMode);
+		this.crashed = false;
+		this.isGmAlive = false;
+		this.groupManager = null;
+		getContext().actorSelection(groupManagerPath)
+					.tell(new JoinRequestMsg(),
+						  this.getSelf());
+	}
+	
+	public Participant(String groupManagerPath) {
+		this(groupManagerPath, false);
+	}
+	
+	public static Props props(ActorRef groupManager, boolean manualMode) {
+		return Props.create(Participant.class,
+				() -> new Participant(groupManager, manualMode));
+	}
+	
+	public static Props props(ActorRef groupManager) {
+		return props(groupManager, false);
+	}
+	
+	public static Props props(String groupManagerPath, boolean manualMode) {
+		return Props.create(Participant.class,
+				() -> new Participant(groupManagerPath, manualMode));
+	}
+	
+	public static Props props(String groupmanagerPath) {
+		return props(groupmanagerPath, false);
 	}
 	
 	//--------------------------------
@@ -64,12 +96,14 @@ public class Participant extends BaseParticipant {
 	private void onJoinMsg(JoinRequestMsg joinResponse) {
 		if (this.crashed)
 			return;
-		//this.id = joinResponse.idAssigned;
+		this.id = joinResponse.idAssigned;
 		this.groupManager = this.getSender();
 		System.out.printf("%d P-%d P-%s JOIN-ASSOC\n",
 				System.currentTimeMillis(),
 				this.id,
 				this.getSelf().path().name());
+		
+		this.getSelf().tell(new CheckGmAliveMsg(), this.getSelf());
 	}
 	
 	@Override
@@ -102,9 +136,10 @@ public class Participant extends BaseParticipant {
 				System.currentTimeMillis(),
 				this.id,
 				this.id,
-				viewChange.view.id);
+				viewChange.id);
 		this.flushesReceived.clear();
-		this.tempView = new View(viewChange.view);
+		this.tempView = new View(viewChange.id,
+								 viewChange.members);
 		for (Message message : messagesUnstable) {
 			for (ActorRef member : this.tempView.members) {
 				member.tell(message, this.getSelf());
@@ -235,7 +270,7 @@ public class Participant extends BaseParticipant {
 
 		/*
 		 * Avoid choosing the group manager
-		 * of self as receiver.
+		 * or self as receiver.
 		 */
 		Iterator<ActorRef> memberIterator = members.iterator();
 		ActorRef receiver = null;
@@ -305,6 +340,51 @@ public class Participant extends BaseParticipant {
 		}
 	}
 	
+	private void onCheckGmAliveMsg(CheckGmAliveMsg msg) {
+		if(crashed)
+			return;
+
+		System.out.printf("%d P-%d P-%d INFO Checking Group Manager\n",
+				System.currentTimeMillis(),
+				this.id,
+				this.id);
+		
+		if(!isGmAlive) {
+			System.out
+				  .printf("%d P-%d P-%d INFO Group manager Unreachable." +
+						  " Exiting...\n",
+						  System.currentTimeMillis(),
+						  this.id,
+						  this.id);
+			this.getContext().stop(this.getSelf());
+			this.getContext().system().terminate();
+		} else {
+			isGmAlive = false;
+			groupManager.tell(new GmAliveMsg(), this.getSelf());
+			this.getContext()
+				.getSystem()
+				.scheduler()
+				.scheduleOnce(Duration.create(
+						ALIVE_TIMEOUT / 2, TimeUnit.SECONDS),
+						this.getSelf(),
+						new CheckGmAliveMsg(),
+						getContext().system().dispatcher(),
+						this.getSelf());
+		}
+	}
+	
+	private void onGmAliveMsg(GmAliveMsg msg) {
+		if (crashed)
+			return;
+		// we cannot process the message if the
+		// node is crashed
+		isGmAlive = true;
+		System.out.printf("%d P-%d P-%d received_gm_alive_message\n",
+				System.currentTimeMillis(),
+				this.id,
+				this.id);
+	}
+	
 	@Override
 	public Receive createReceive() {
 		return receiveBuilder()
@@ -321,6 +401,8 @@ public class Participant extends BaseParticipant {
 				.match(ReceivingCrashMsg.class,
 						this::onReceivingMulticastCrashMsg)		
 				.match(AliveMsg.class, this::onAliveMsg)
+				.match(CheckGmAliveMsg.class, this::onCheckGmAliveMsg)
+				.match(GmAliveMsg.class, this::onGmAliveMsg)
 				.build();
 	}
 }
