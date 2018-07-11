@@ -12,9 +12,9 @@ import java.util.concurrent.TimeUnit;
 import akka.actor.ActorRef;
 import reliable_multicast.messages.Message;
 import reliable_multicast.messages.ReviveMsg;
-import reliable_multicast.messages.crash_messages.*;
-import reliable_multicast.messages.crash_messages.MulticastCrashMsg.MutlicastCrashType;
-import reliable_multicast.messages.crash_messages.ReceivingCrashMsg.ReceivingCrashType;
+import reliable_multicast.messages.events_messages.*;
+import reliable_multicast.messages.events_messages.MulticastCrashMsg.MutlicastCrashType;
+import reliable_multicast.messages.events_messages.ReceivingCrashMsg.ReceivingCrashType;
 import reliable_multicast.utils.EventsList;
 import reliable_multicast.utils.IdRefMap;
 import reliable_multicast.utils.StepProcessMap;
@@ -22,7 +22,7 @@ import scala.concurrent.duration.Duration;
 
 public abstract class EventsController extends BaseParticipant {
 	
-	public class SendStepMsg implements Serializable {};
+	public static class SendStepMsg implements Serializable {};
 	
 	public enum Event {
 		MULTICAST_ONE_N_CRASH,
@@ -39,7 +39,7 @@ public abstract class EventsController extends BaseParticipant {
 	private EventsList events;
 	
 	public EventsController(boolean manualMode,
-							Map<String, Event> events,
+							Map<String, Map<Event, Set<String>>> events,
 							Map<Integer, Set<String>> sendOrder,
 							Map<Integer, Set<String>> risenOrder,
 							Map<Integer, Set<String>> views) {
@@ -93,6 +93,29 @@ public abstract class EventsController extends BaseParticipant {
 	protected void onReceiveMessage(Message message) {
 		super.onReceiveMessage(message);
 		this.events.updateProcessLastCall(message.senderID, message.messageID);
+		
+		/*
+		 * This will allow the group manager
+		 * to manage events in the case one doesn't
+		 * want to use the config file.
+		 * 
+		 * Events can be pushed to event list
+		 * manually.
+		 */
+		if (!this.manualMode)
+			this.triggerEvent(message.getLabel());
+	}
+	
+	protected void onCrashedProcess(ActorRef process) {
+		int id = this.aliveProcesses
+					 .getIdByActor(process);
+		// add the crashed process to the crashedProcesses
+		// map, and remove it from the alivesProcesses map.
+		// The former allows to retrieve the actor Id of
+		// the process to revive (using its previously associated
+		// id).
+		this.crashedProcesses.addIdRefAssoc(id, process);
+		this.aliveProcesses.removeIdRefEntry(id);
 	}
 	
 	/**
@@ -183,6 +206,12 @@ public abstract class EventsController extends BaseParticipant {
 		Set<ActorRef> currentParticipants = new HashSet<>(this.tempView.members);
 		currentParticipants.addAll(this.crashedProcesses.getProcessesActors());
 		if (!currentParticipants.containsAll(participants)) {
+			System.out.printf("%d P-%d P-%s WARNING missing" +
+					  " processes for step-%d\n",
+					  System.currentTimeMillis(),
+					  this.id,
+					  this.id,
+					  tmpStep);
 			return;
 		}
 		
@@ -283,7 +312,10 @@ public abstract class EventsController extends BaseParticipant {
 					senders.add(tmpSender);
 				else {
 					triggeringIds.add(senderId);
-					if (!this.events.isSendingEvent(nextEventLabel))
+					if (!this.events.isSendingEvent(nextEventLabel) &&
+						!this.events
+							 .getEventReceivers(nextEventLabel)
+							 .contains(senderId))
 						senders.add(tmpSender);
 					else {
 						System.out.printf("%d P-%d P-%s WARNING process p%d" + 
@@ -299,7 +331,6 @@ public abstract class EventsController extends BaseParticipant {
 				}
 			}
 		}
-		System.out.printf(triggeringIds.toString());
 		
 		ActorRef crashedProcess;
 		List<ActorRef> risenList = new ArrayList<>();
@@ -327,19 +358,19 @@ public abstract class EventsController extends BaseParticipant {
 		 * all checks are done. It's safe to blindly
 		 * send messages.
 		 */
-		
 		for (ActorRef sender : senders) {
 			sender.tell(new SendMulticastMsg(), this.getSelf());
 		}
 		for (Integer triggeringId : triggeringIds) {
-			this.triggerEvent(triggeringId);
+			this.triggerEvent(this.events
+								  .getProcessNextLabel(triggeringId));
 		}		
 		for (ActorRef risen : risenList) {
 			risen.tell(new ReviveMsg(), this.getSelf());
 			this.crashedProcesses
-				.removeIdRefEntry(this.crashedProcesses.getIdByActor(risen));
+				.removeIdRefEntry(this.crashedProcesses
+									  .getIdByActor(risen));
 		}
-		
 		// everything went well (hopefully).
 		// So, increase the step
 		this.step = tmpStep;
@@ -353,16 +384,24 @@ public abstract class EventsController extends BaseParticipant {
 	 * associated with the sender ID).
 	 * 
 	 */
-	protected void triggerEvent(Integer processId) {
-		String eventLabel = this.events.getProcessNextLabel(processId);
+	protected void triggerEvent(String eventLabel) {
 		Event event = this.events.getEvent(eventLabel);
+		Set<Integer> receiversIds = this.events.getEventReceivers(eventLabel);
+
 		if (event == null)
 			return;
-		ActorRef sender = this.aliveProcesses
-							  .getActorById(processId);
-		if (sender == null)
-			return;
-		CrashMessage crashMsg = null;
+		
+		Set<ActorRef> receivers = new HashSet<>();
+		ActorRef tmpReceiver;
+		for (Integer receiverId : receiversIds) {
+			 tmpReceiver = this.aliveProcesses
+							   .getActorById(receiverId);
+			if (tmpReceiver == null)
+				return;
+			receivers.add(tmpReceiver);
+		}
+		
+		EventMessage crashMsg = null;
 		switch (event) {
 		case MULTICAST_N_CRASH:
 			crashMsg = new MulticastCrashMsg(
@@ -374,13 +413,17 @@ public abstract class EventsController extends BaseParticipant {
 			break;
 		case RECEIVE_MESSAGE_N_CRASH:
 			crashMsg = new ReceivingCrashMsg(
-					ReceivingCrashType.RECEIVE_MULTICAST_N_CRASH);
+					ReceivingCrashType.RECEIVE_MULTICAST_N_CRASH,
+					eventLabel);
 			break;
 		case RECEIVE_VIEW_N_CRASH:
 			crashMsg = new ReceivingCrashMsg(
-					ReceivingCrashType.RECEIVE_VIEW_N_CRASH);
+					ReceivingCrashType.RECEIVE_VIEW_N_CRASH,
+					eventLabel);
 			break;
 		}
-		sender.tell(crashMsg, this.getSelf());
+		for (ActorRef receiver : receivers) {
+			receiver.tell(crashMsg, this.getSelf());
+		}
 	}
 }

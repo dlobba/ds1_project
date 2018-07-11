@@ -1,7 +1,7 @@
-package reliable_multicast.messages.crash_messages;
+package reliable_multicast.messages.events_messages;
 import java.io.Serializable;
 
-public class MulticastCrashMsg extends CrashMessage
+public class MulticastCrashMsg extends EventMessage
 implements Serializable {
 
 	public enum MutlicastCrashType {

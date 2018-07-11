@@ -21,7 +21,7 @@ import scala.concurrent.duration.Duration;
 public class BaseParticipant extends AbstractActor {
 
 	// --- Messages for internal behavior ---
-	public class SendMulticastMsg implements Serializable {};
+	public static class SendMulticastMsg implements Serializable {};
 	
 	// --------------------------------------
 	
@@ -40,17 +40,21 @@ public class BaseParticipant extends AbstractActor {
 	protected Set<FlushMsg> flushesReceived;
 	protected Set<Message> messagesUnstable;
 	
-	public BaseParticipant(boolean manualMode) {
-		super();
+	protected void resetParticipant() {
 		this.id = -1;
 		this.multicastId = 0;
 		this.aliveId = 0;
+		this.canSend = false;
 		this.view = new View(-1);
 		this.tempView = new View(-1);
-		this.canSend = false;
-		this.manualMode = manualMode;
 		this.messagesUnstable = new HashSet<>();
 		this.flushesReceived = new HashSet<>();
+	}
+	
+	public BaseParticipant(boolean manualMode) {
+		super();
+		this.resetParticipant();
+		this.manualMode = manualMode;
 	}
 	
 	public BaseParticipant(Config config) {
@@ -114,9 +118,10 @@ public class BaseParticipant extends AbstractActor {
 				System.currentTimeMillis(),
 				this.id,
 				this.id,
-				viewChange.view.id);
+				viewChange.id);
 		//this.flushesReceived.clear();
-		this.tempView = new View(viewChange.view);
+		this.tempView = new View(viewChange.id,
+								 viewChange.members);
 		this.removeOldFlushes(this.tempView.id);
 		for (Message message : messagesUnstable) {
 			for (ActorRef member : this.tempView.members) {
@@ -148,7 +153,8 @@ public class BaseParticipant extends AbstractActor {
 				flushMsg.viewID);
 		// if this is true then every operational
 		// node has received all the unstable messages
-		if (this.getFlushSenders(this.tempView.id)
+		if (this.tempView.id == flushMsg.viewID &&
+			this.getFlushSenders(this.tempView.id)
 				.containsAll(this.tempView.members)) {
 			// deliver all mesages up to current view
 			this.deliverAllMessages();
@@ -221,6 +227,7 @@ public class BaseParticipant extends AbstractActor {
 
 		Message message = new Message(this.id,
 				this.multicastId,
+				this.tempView.id,
 				false);
 		this.multicastId += 1;
 		

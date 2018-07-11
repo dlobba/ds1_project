@@ -6,13 +6,12 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
-import reliable_multicast.EventsController;
 import reliable_multicast.EventsController.Event;
 
 public class Config {
 
 	private boolean manual_mode;
-	private Map<String, Event> events;
+	private Map<String, Map<Event, Set<String>>> events;
 	private Map<Integer, Set<String>> senders;
 	private Map<Integer, Set<String>> risen;
 	private Map<Integer, Set<String>> views;
@@ -33,19 +32,22 @@ public class Config {
 		this.manual_mode = manual_mode;
 	}
 	
-	public Map<String, Event> getEvents() {
-		Map<String, Event> events = new HashMap<>();
+	public Map<String, Map<Event, Set<String>>> getEvents() {
+		Map<String, Map<Event, Set<String>>> events = new HashMap<>();
 		Iterator<String> msgLabelIterator =
 				events.keySet().iterator();
 		String msgLabel = null;
+		Map<Event, Set<String>> tmpMap;
 		while (msgLabelIterator.hasNext()) {
 			msgLabel = msgLabelIterator.next();
-			events.put(msgLabel, this.events.get(msgLabel));
+			tmpMap = new HashMap<>();
+			tmpMap.putAll(this.events.get(msgLabel));
+			events.put(msgLabel, tmpMap);
 		}
 		return this.events;
 	}
 	
-	public Map<String, Event> getUnderlyingEvents() {
+	public Map<String, Map<Event, Set<String>>> getUnderlyingEvents() {
 		return this.events;
 	}
 	
