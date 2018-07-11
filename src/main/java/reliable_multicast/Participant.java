@@ -102,7 +102,8 @@ public class Participant extends BaseParticipant {
 				System.currentTimeMillis(),
 				this.id,
 				this.getSelf().path().name());
-		
+
+		this.isGmAlive = true;
 		this.getSelf().tell(new CheckGmAliveMsg(), this.getSelf());
 	}
 	
