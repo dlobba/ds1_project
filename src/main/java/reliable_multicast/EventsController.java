@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 import akka.actor.ActorRef;
 import reliable_multicast.messages.Message;
@@ -18,24 +17,30 @@ import reliable_multicast.messages.events_messages.ReceivingCrashMsg.ReceivingCr
 import reliable_multicast.utils.EventsList;
 import reliable_multicast.utils.IdRefMap;
 import reliable_multicast.utils.StepProcessMap;
-import scala.concurrent.duration.Duration;
 
 public abstract class EventsController extends BaseParticipant {
-	
+
+	// --- Messages for internal behavior ---
 	public static class SendStepMsg implements Serializable {};
-	
+
+	// --------------------------------------
+
 	public enum Event {
 		MULTICAST_ONE_N_CRASH,
 		MULTICAST_N_CRASH,
 		RECEIVE_MESSAGE_N_CRASH,
 		RECEIVE_VIEW_N_CRASH
 	}
+
+	private int step; // the step we have reached
+
 	protected IdRefMap aliveProcesses;
 	protected IdRefMap crashedProcesses;
-	private int step;
+
 	private StepProcessMap sendOrder;
 	private StepProcessMap risenOrder;
 	private StepProcessMap views;
+
 	private EventsList events;
 	
 	public EventsController(boolean manualMode,
@@ -76,13 +81,8 @@ public abstract class EventsController extends BaseParticipant {
 	
 	protected void scheduleStep() {
 		int time = new Random().nextInt(MULTICAST_INTERLEAVING);
-		this.getContext().getSystem().scheduler()
-			.scheduleOnce(Duration.create(time,
-					TimeUnit.SECONDS),
-					this.getSelf(),
-					new SendStepMsg(),
-					getContext().system().dispatcher(),
-					this.getSelf());
+		this.scheduleMessage(new SendStepMsg(),
+							 time);
 	}
 	
 	/**
@@ -92,8 +92,9 @@ public abstract class EventsController extends BaseParticipant {
 	@Override
 	protected void onReceiveMessage(Message message) {
 		super.onReceiveMessage(message);
-		this.events.updateProcessLastCall(message.senderID, message.messageID);
-		
+		this.events.updateProcessLastCall(message.senderID,
+										  message.messageID);
+
 		/*
 		 * This will allow the group manager
 		 * to manage events in the case one doesn't
@@ -101,6 +102,8 @@ public abstract class EventsController extends BaseParticipant {
 		 * 
 		 * Events can be pushed to event list
 		 * manually.
+		 * 
+		 * TODO: test this
 		 */
 		if (!this.manualMode)
 			this.triggerEvent(message.getLabel());
@@ -141,10 +144,10 @@ public abstract class EventsController extends BaseParticipant {
 		}
 		int tmpStep = this.step + 1;
 		System.out.printf("%d P-%d P-%s INFO step-%d\n",
-				System.currentTimeMillis(),
-				this.id,
-				this.id,
-				tmpStep);
+						  System.currentTimeMillis(),
+						  this.id,
+						  this.id,
+						  tmpStep);
 		/*
 		 * FIRST CHECK:
 		 * the step should be stable, so
@@ -154,10 +157,11 @@ public abstract class EventsController extends BaseParticipant {
 		 * (as expected).
 		 */
 		if (!this.view.equals(this.tempView)) {
-			System.out.printf("%d P-%d P-%s INFO View unstable\n",
-					System.currentTimeMillis(),
-					this.id,
-					this.id);
+			System.out
+				  .printf("%d P-%d P-%s INFO View unstable\n",
+						  System.currentTimeMillis(),
+						  this.id,
+						  this.id);
 			return;
 		}
 		
@@ -188,12 +192,13 @@ public abstract class EventsController extends BaseParticipant {
 				participants.add(this.crashedProcesses
 						 			 .getActorById(processId));
 			} else {
-				System.out.printf("%d P-%d P-%s INFO missing processes " + 
-						"in the view for step-%d\n",
-						System.currentTimeMillis(),
-						this.id,
-						this.id,
-						tmpStep);
+				System.out
+					  .printf("%d P-%d P-%s INFO missing processes " + 
+							  "in the view for step-%d\n",
+							  System.currentTimeMillis(),
+							  this.id,
+							  this.id,
+							  tmpStep);
 				return;
 			}
 		}
@@ -207,11 +212,11 @@ public abstract class EventsController extends BaseParticipant {
 		currentParticipants.addAll(this.crashedProcesses.getProcessesActors());
 		if (!currentParticipants.containsAll(participants)) {
 			System.out.printf("%d P-%d P-%s WARNING missing" +
-					  " processes for step-%d\n",
-					  System.currentTimeMillis(),
-					  this.id,
-					  this.id,
-					  tmpStep);
+							  " processes for step-%d\n",
+							  System.currentTimeMillis(),
+							  this.id,
+							  this.id,
+							  tmpStep);
 			return;
 		}
 		
@@ -239,6 +244,8 @@ public abstract class EventsController extends BaseParticipant {
 		 * In a real system this waiting time should
 		 * approximate the worst among network delays.
 		 */
+
+		// TODO: try to remove this
 		try {
 			Thread.sleep(1000);
 		} catch (InterruptedException e) {
@@ -251,9 +258,9 @@ public abstract class EventsController extends BaseParticipant {
 		Set<Integer> risenIds =
 				this.risenOrder.getProcessesInStep(tmpStep);
 		
-		boolean missingSenders = sendersIds != null &&
-								 !viewParticipantsIds
-								 	.containsAll(sendersIds);
+		boolean missingSenders =
+				sendersIds != null &&
+				!viewParticipantsIds.containsAll(sendersIds);
 		boolean missingRisen = risenIds != null &&
 							   !this.crashedProcesses
 							   		.getProcessesIds()
@@ -272,7 +279,13 @@ public abstract class EventsController extends BaseParticipant {
 		 * While picking senders, check whether
 		 * an event can be triggered.
 		 * If this is the case, store the id for
-		 * further processing.
+		 * further processing. This is done
+		 * due to the fact that an event that still
+		 * has to happen is triggered by one of
+		 * the sender (it cannot be in any other
+		 * way). What we are doing here is
+		 * a kind of preemptive events handling.
+		 * 
 		 * If a process has associated both
 		 * a normal multicast and a crashing
 		 * multicast, then avoid doing the
@@ -288,20 +301,22 @@ public abstract class EventsController extends BaseParticipant {
 			// obtain actorRefs from senders ID
 			for (Integer senderId : sendersIds) {
 				tmpSender = this.aliveProcesses
-							 .getActorById(senderId);
+							 	.getActorById(senderId);
 				// it can happen for a sender to be null.
 				// For instance when the process is crashed yet the
-				// configuration file states the process to send
+				// configuration file states the process should send
 				// a multicast. The configuration file is therefore
 				// wrong.
 				if (tmpSender == null) {
-					System.out.printf("%d P-%d P-%s ERROR process p%d" + 
-							" cannot send in step-%d. It's crashed. Check the conf. file.\n",
-							System.currentTimeMillis(),
-							this.id,
-							this.id,
-							senderId,
-							tmpStep);
+					System.out
+						  .printf("%d P-%d P-%s ERROR process p%d" + 
+								  " cannot send in step-%d. It's crashed." +
+								  " Check the conf. file.\n",
+								  System.currentTimeMillis(),
+								  this.id,
+								  this.id,
+								  senderId,
+								  tmpStep);
 					return;
 				}
 				nextEventLabel = this.events.getProcessNextLabel(senderId);
@@ -318,15 +333,16 @@ public abstract class EventsController extends BaseParticipant {
 							 .contains(senderId))
 						senders.add(tmpSender);
 					else {
-						System.out.printf("%d P-%d P-%s WARNING process p%d" + 
-								" had two concurrent sending events in step-%d." +
-								" The normal multicast has been ignored." +
-								" Check the conf. file.\n",
-								System.currentTimeMillis(),
-								this.id,
-								this.id,
-								senderId,
-								tmpStep);
+						System.out
+							  .printf("%d P-%d P-%s WARNING process p%d" + 
+									  " had two concurrent sending events in step-%d." +
+									  " The normal multicast has been ignored." +
+									  " Check the conf. file.\n",
+									  System.currentTimeMillis(),
+									  this.id,
+									  this.id,
+									  senderId,
+									  tmpStep);
 					}
 				}
 			}
@@ -340,13 +356,15 @@ public abstract class EventsController extends BaseParticipant {
 				crashedProcess = this.crashedProcesses
 						.getActorById(risenId);
 				if (crashedProcess == null) {
-					System.out.printf("%d P-%d P-%s ERROR process p%d" + 
-							" cannot revive in step-%d. It's still alive. Check the conf. file.\n",
-							System.currentTimeMillis(),
-							this.id,
-							this.id,
-							risenId,
-							tmpStep);
+					System.out
+						  .printf("%d P-%d P-%s ERROR process p%d" + 
+								  " cannot revive in step-%d." +
+								  " It's still alive. Check the conf. file.\n",
+								  System.currentTimeMillis(),
+								  this.id,
+								  this.id,
+								  risenId,
+								  tmpStep);
 					return;
 				}
 				risenList.add(crashedProcess);
@@ -386,11 +404,12 @@ public abstract class EventsController extends BaseParticipant {
 	 */
 	protected void triggerEvent(String eventLabel) {
 		Event event = this.events.getEvent(eventLabel);
-		Set<Integer> receiversIds = this.events.getEventReceivers(eventLabel);
+		Set<Integer> receiversIds = this.events
+										.getEventReceivers(eventLabel);
 
 		if (event == null)
 			return;
-		
+
 		Set<ActorRef> receivers = new HashSet<>();
 		ActorRef tmpReceiver;
 		for (Integer receiverId : receiversIds) {

@@ -5,9 +5,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import scala.concurrent.duration.Duration;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 import akka.actor.ActorRef;
 import akka.actor.Props;
@@ -20,7 +18,6 @@ import reliable_multicast.messages.StopMulticastMsg;
 import reliable_multicast.messages.ViewChangeMsg;
 
 public class GroupManager extends EventsController {
-	
 	
 	public static class CheckViewMsg implements Serializable {};
 	
@@ -71,6 +68,8 @@ public class GroupManager extends EventsController {
 		this.getSelf().tell(new CheckViewMsg(), this.getSelf());
 	}
 	
+	// --------- CONSTRUCTORS ------------------
+	
 	/**
 	 * Constructor thought to be used when manual
 	 * mode is wanted.
@@ -117,6 +116,8 @@ public class GroupManager extends EventsController {
 	    		() -> new GroupManager(id));
 	}
 	
+	// ------------------------------------------
+	
 	public int getIdPool() {
 		return idPool;
 	}
@@ -127,10 +128,11 @@ public class GroupManager extends EventsController {
 	
 	private void onJoinRequestMsg(JoinRequestMsg request) {
 		/*
+		// DEBUG: 
 		 System.out.printf("%d P-%s P-%s INFO join_request\n",
-				System.currentTimeMillis(),
-				this.getSelf().path().name(),
-				this.getSender().path().name());
+						   System.currentTimeMillis(),
+						   this.getSelf().path().name(),
+						   this.getSender().path().name());
 		*/
 		JoinRequestMsg response = new JoinRequestMsg(this.idPool);
 		this.getSender().tell(response, this.getSelf());
@@ -167,10 +169,10 @@ public class GroupManager extends EventsController {
 		this.tempView = new View(this.tempView.id + 1,
 				newMembers);
 		System.out.printf("%d P-%d P-%d INFO change-view: %s\n",
-				System.currentTimeMillis(),
-				this.id,
-				this.id,
-				this.tempView.toString());
+						  System.currentTimeMillis(),
+						  this.id,
+						  this.id,
+						  this.tempView.toString());
 		ViewChangeMsg viewMsg = new ViewChangeMsg(this.tempView);
 		for (ActorRef actorRef : newMembers) {
 			actorRef.tell(viewMsg, this.getSelf());
@@ -183,16 +185,23 @@ public class GroupManager extends EventsController {
 	 * view change.
 	 */
 	private void onCheckViewMsg(CheckViewMsg msg) {
+		/*
+		// DEBUG:
 		System.out.printf("%d P-%d P-%d INFO Checking survivors\n",
-				System.currentTimeMillis(),
-				this.id,
-				this.id);
+						  System.currentTimeMillis(),
+						  this.id,
+						  this.id);
+	  	*/
 		if (alivesReceived.size() > 0) {
-			/* here the view must be changed.
+			/* here the view must be changed. A node crashed.
 			 * New members are current members minus the ones
 			 * from which the heartbeat has not been received.
 			 */
 			Set<ActorRef> newView = new HashSet<>(this.tempView.members);
+
+			// ----------------------------------
+			// This is just to have additional info
+			// on crashed nodes. It's of no other use.
 			List<String> nodesCrashed = new ArrayList<>();
 			int pid = 0;
 			for (ActorRef actor : alivesReceived) {
@@ -202,10 +211,11 @@ public class GroupManager extends EventsController {
 				onCrashedProcess(actor);
 			}
 			System.out.printf("%d P-%d P-%d INFO nodes: %s crashed.\n",
-					System.currentTimeMillis(),
-					this.id,
-					this.id,
-					nodesCrashed.toString());
+							  System.currentTimeMillis(),
+							  this.id,
+							  this.id,
+							  nodesCrashed.toString());
+			// ----------------------------------
 			alivesReceived.clear();
 			onViewChange(newView);
 		} else {
@@ -220,26 +230,29 @@ public class GroupManager extends EventsController {
 			}
 			aliveId++;
 		}
-		this.getContext()
-			.getSystem()
-			.scheduler()
-			.scheduleOnce(Duration.create(
-					ALIVE_TIMEOUT / 2, TimeUnit.SECONDS),
-					this.getSelf(),
-					new CheckViewMsg(),
-					getContext().system().dispatcher(),
-					this.getSelf());
+		this.scheduleMessage(new CheckViewMsg(),
+							 ALIVE_TIMEOUT / 2);
 	}
 
 	private void onAliveMsg(AliveMsg msg) {
 		alivesReceived.remove(this.getSender());
 		System.out.printf("%d P-%d P-%d received_alive_message %s\n",
-				System.currentTimeMillis(),
-				this.id,
-				msg.senderID,
-				msg.toString());
+						  System.currentTimeMillis(),
+						  this.id,
+						  msg.senderID,
+						  msg.toString());
 	}
-	
+
+	/**
+	 * An inverse heartbeat flowing from each
+	 * participant to the group manager.
+	 * 
+	 * When we terminate the group manager, the
+	 * this won't answer to heartbeat request
+	 * anymore, thus participant can terminate.
+	 * 
+	 * @param msg
+	 */
 	private void onGmAliveMsg(GmAliveMsg msg) {
 		this.getSender()
 			.tell(new GmAliveMsg(),
