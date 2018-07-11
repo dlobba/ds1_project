@@ -1,5 +1,6 @@
 package reliable_multicast;
 
+import java.io.Serializable;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -12,6 +13,8 @@ import reliable_multicast.messages.events_messages.ReceivingCrashMsg;
 import scala.concurrent.duration.Duration;
 
 public class Participant extends BaseParticipant {
+
+	public static class CheckGmAliveMsg implements Serializable {};
 	
 	protected ActorRef groupManager;
 	protected boolean crashed;
@@ -19,7 +22,7 @@ public class Participant extends BaseParticipant {
 	protected boolean receiveMessageAndCrash;
 	protected boolean receiveViewChangeAndCrash;
 	private String ignoreMessageLabel;
-	private Boolean isGmAlive;
+	private boolean isGmAlive;
 	
 	private static final int ALIVE_TIMEOUT = 
 			BaseParticipant.MULTICAST_INTERLEAVING / 2;
@@ -42,9 +45,9 @@ public class Participant extends BaseParticipant {
 		super(manualMode);
 		this.groupManager = groupManager;
 		this.crashed = false;
-		this.isGmAlive = true;
+		this.isGmAlive = false;
 		this.groupManager.tell(new JoinRequestMsg(),
-				this.getSelf());
+							   this.getSelf());
 	}
 	
 	public Participant(ActorRef groupManager) {
@@ -54,7 +57,7 @@ public class Participant extends BaseParticipant {
 	public Participant(String groupManagerPath, boolean manualMode) {
 		super(manualMode);
 		this.crashed = false;
-		this.isGmAlive = true;
+		this.isGmAlive = false;
 		this.groupManager = null;
 		getContext().actorSelection(groupManagerPath)
 					.tell(new JoinRequestMsg(),
@@ -267,7 +270,7 @@ public class Participant extends BaseParticipant {
 
 		/*
 		 * Avoid choosing the group manager
-		 * of self as receiver.
+		 * or self as receiver.
 		 */
 		Iterator<ActorRef> memberIterator = members.iterator();
 		ActorRef receiver = null;
@@ -340,7 +343,7 @@ public class Participant extends BaseParticipant {
 	private void onCheckGmAliveMsg(CheckGmAliveMsg msg) {
 		if(crashed)
 			return;
-		
+
 		System.out.printf("%d P-%d P-%d INFO Checking Group Manager\n",
 				System.currentTimeMillis(),
 				this.id,
@@ -348,32 +351,34 @@ public class Participant extends BaseParticipant {
 		
 		if(!isGmAlive) {
 			System.out
-			  .printf("%d P-%d P-%d INFO Group manager Unreachable. Exiting...\n",
-					  System.currentTimeMillis(),
-					  this.id,
-					  this.id);
-			System.exit(0);
+				  .printf("%d P-%d P-%d INFO Group manager Unreachable." +
+						  " Exiting...\n",
+						  System.currentTimeMillis(),
+						  this.id,
+						  this.id);
+			this.getContext().stop(this.getSelf());
+			this.getContext().system().terminate();
 		} else {
 			isGmAlive = false;
 			groupManager.tell(new GmAliveMsg(), this.getSelf());
 			this.getContext()
-			.getSystem()
-			.scheduler()
-			.scheduleOnce(Duration.create(
-					ALIVE_TIMEOUT / 2, TimeUnit.SECONDS),
-					this.getSelf(),
-					new CheckGmAliveMsg(),
-					getContext().system().dispatcher(),
-					this.getSelf());
+				.getSystem()
+				.scheduler()
+				.scheduleOnce(Duration.create(
+						ALIVE_TIMEOUT / 2, TimeUnit.SECONDS),
+						this.getSelf(),
+						new CheckGmAliveMsg(),
+						getContext().system().dispatcher(),
+						this.getSelf());
 		}
 	}
 	
 	private void onGmAliveMsg(GmAliveMsg msg) {
-		isGmAlive = true;
-		
-		if(crashed)
+		if (crashed)
 			return;
-		
+		// we cannot process the message if the
+		// node is crashed
+		isGmAlive = true;
 		System.out.printf("%d P-%d P-%d received_gm_alive_message\n",
 				System.currentTimeMillis(),
 				this.id,
