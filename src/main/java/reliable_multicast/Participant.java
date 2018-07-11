@@ -12,425 +12,416 @@ import reliable_multicast.messages.events_messages.ReceivingCrashMsg;
 
 public class Participant extends BaseParticipant {
 
-	public static class CheckGmAliveMsg implements Serializable {};
-	
-	private static final int ALIVE_TIMEOUT = 
-			BaseParticipant.MULTICAST_INTERLEAVING / 2;
-	
-	protected ActorRef groupManager;
-	protected boolean crashed;
-  
-	protected boolean receiveMessageAndCrash;
-	protected boolean receiveViewChangeAndCrash;
-	private String ignoreMessageLabel;
+    public static class CheckGmAliveMsg implements Serializable {
+    };
 
-	private boolean isGmAlive;
-	
-	/*
-	 * This will be called in the constructor by issuing
-	 * the super() method.
-	 * 
-	 * @see reliable_multicast.BaseParticipant#resetParticipant()
-	 */
-	@Override
-	protected void resetParticipant() {
-		super.resetParticipant();
-		this.receiveMessageAndCrash = false;
-		this.receiveViewChangeAndCrash = false;
-	}
+    private static final int ALIVE_TIMEOUT =
+            BaseParticipant.MULTICAST_INTERLEAVING / 2;
 
-	// Constructors -----------------------------
+    protected ActorRef groupManager;
+    protected boolean crashed;
 
-	public Participant(ActorRef groupManager, boolean manualMode) {
-		super(manualMode);
-		this.groupManager = groupManager;
-		this.crashed = false;
-		this.isGmAlive = false;
-		this.groupManager.tell(new JoinRequestMsg(),
-							   this.getSelf());
-	}
-	
-	public Participant(ActorRef groupManager) {
-		this(groupManager, false);
-	}
-	
-	public Participant(String groupManagerPath, boolean manualMode) {
-		super(manualMode);
-		this.crashed = false;
-		this.isGmAlive = false;
-		this.groupManager = null;
-		getContext().actorSelection(groupManagerPath)
-					.tell(new JoinRequestMsg(),
-						  this.getSelf());
-	}
-	
-	public Participant(String groupManagerPath) {
-		this(groupManagerPath, false);
-	}
-	
-	public static Props props(ActorRef groupManager, boolean manualMode) {
-		return Props.create(Participant.class,
-				() -> new Participant(groupManager, manualMode));
-	}
-	
-	public static Props props(ActorRef groupManager) {
-		return props(groupManager, false);
-	}
-	
-	public static Props props(String groupManagerPath, boolean manualMode) {
-		return Props.create(Participant.class,
-				() -> new Participant(groupManagerPath, manualMode));
-	}
-	
-	public static Props props(String groupManagerPath) {
-		return props(groupManagerPath, false);
-	}
-	
-	//--------------------------------
+    protected boolean receiveMessageAndCrash;
+    protected boolean receiveViewChangeAndCrash;
+    private String ignoreMessageLabel;
 
-	/* 
-	 * When a participant receives a JoinRequestMsg it's
-	 * only when the Group Manager answers to the request
-	 * with the ID for the participant.
-	 */
-	private void onJoinMsg(JoinRequestMsg joinResponse) {
-		if (this.crashed)
-			return;
-		this.id = joinResponse.idAssigned;
-		this.groupManager = this.getSender();
-		System.out
-			  .printf("%d P-%d P-%s JOIN-ASSOC\n",
-					  System.currentTimeMillis(),
-					  this.id,
-					  this.getSelf().path().name());
+    private boolean isGmAlive;
 
-		this.isGmAlive = true;
-		this.getSelf().tell(new CheckGmAliveMsg(), this.getSelf());
-	}
-	
-	@Override
-	protected void onStopMulticast(StopMulticastMsg stopMsg) {
-		if (this.crashed)
-			return;
-		super.onStopMulticast(stopMsg);
-	}
-
-	@Override
-	protected void onViewChangeMsg(ViewChangeMsg viewChange) {
-		if (this.crashed)
-			return;
-		
-		if (this.receiveViewChangeAndCrash) {
-			this.receiveViewChangeAndCrash = false;
-			this.crashAfterViewChange(viewChange);
-		}
-		else
-			super.onViewChangeMsg(viewChange);
-	}
-	
-	/**
-	 * Replicate the behavior of the normal view-change method,
-	 * but instead of sending the FLUSH messages the node crashes.
-	 * @param viewChange
-	 */
-	protected void crashAfterViewChange(ViewChangeMsg viewChange) {
-		System.out
-			  .printf("%d P-%d P-%d INFO started_view_change V%d\n",
-					  System.currentTimeMillis(),
-					  this.id,
-					  this.id,
-					  viewChange.id);
-		this.flushesReceived.clear();
-		this.tempView = new View(viewChange.id,
-								 viewChange.members);
-		for (Message message : messagesUnstable) {
-			for (ActorRef member : this.tempView.members) {
-				member.tell(message, this.getSelf());
-			}
-		}
-		this.crash();
-		// FLUSHES are not sent
-	}
-
-	@Override
-	protected void onFlushMsg(FlushMsg flushMsg) {
-		if (this.crashed)
-			return;
-		super.onFlushMsg(flushMsg);
-	}
-
-	@Override
-	protected void onReceiveMessage(Message message) {
-		if (this.crashed)
-			return;
-		super.onReceiveMessage(message);
-
-		if (this.receiveMessageAndCrash &&
-			!this.ignoreMessageLabel.equals(message.getLabel())) {
-			// remove the flag (so when the node revives
-			// it won't crash suddenly).
-			// Then let the node crash.
-			this.receiveMessageAndCrash = false;
-			this.crash();
-		}
-	}
-
-	private void crash() {
-		System.out
-			  .printf("%d P-%d P-%d CRASHED\n",
-					  System.currentTimeMillis(),
-					  this.id,
-					  this.id);
-		this.resetParticipant();
-		this.crashed = true;
-		this.canSend = false;
-	}
-	
-	// EXT: external behavior message handlers --
-	
-	/**
-	 * This message was used before having the
-	 * event-handler system based on config.
-	 * 
-	 * Now the message is kept to let
-	 * the node crash from the outside and without
-	 * using a config file (we won't use this
-	 * approach).
-	 * 
-	 * We make a node crash after a particular
-	 * event, like multicast and crash, or receive
-	 * a message and crash.
-	 * 
-	 * @param crashMsg
-	 */
-	private void onCrashMsg(CrashMsg crashMsg) {
-		this.crash();
-	}
-
-    private void onAliveMsg(AliveMsg aliveMsg) {			
-		if (this.crashed)
-			return;
-		this.getSender()
-			.tell(new AliveMsg(this.aliveId, this.id),
-				  this.getSelf());
+    /*
+     * This will be called in the constructor by issuing the super()
+     * method.
+     * 
+     * @see reliable_multicast.BaseParticipant#resetParticipant()
+     */
+    @Override
+    protected void resetParticipant() {
+        super.resetParticipant();
+        this.receiveMessageAndCrash = false;
+        this.receiveViewChangeAndCrash = false;
     }
-	
-	/**
-	 * Turn off crashed mode and ask the group
-	 * manager to join.
-	 * 
-	 * @param reviveMsg
-	 */
-	private void onReviveMsg(ReviveMsg reviveMsg) {
-		this.crashed = false;
-		//TODO: remove the node from the crashed node
-		this.groupManager.tell(new JoinRequestMsg(), this.getSelf());
-	}
-	
-	// implementing sending and receiving -------
-	// variants with crashes --------------------
-		
-	private void multicastAndCrash() {
-		if (! this.canSend)
-			return;
 
-		// this node cannot send message
-		// until this one is completed
-		this.canSend = false;
+    // Constructors -----------------------------
 
-		Message message = new Message(this.id,
-				this.multicastId,
-				this.tempView.id,
-				false);
-		this.multicastId += 1;
+    public Participant(ActorRef groupManager, boolean manualMode) {
+        super(manualMode);
+        this.groupManager = groupManager;
+        this.crashed = false;
+        this.isGmAlive = false;
+        this.groupManager.tell(new JoinRequestMsg(),
+                this.getSelf());
+    }
 
-		for (ActorRef member : this.view.members) {
-			member.tell(message, this.getSelf());
-		}
-		// Do not send stable messages.
-		// Crash instead
-		this.crash();
-	}
+    public Participant(ActorRef groupManager) {
+        this(groupManager, false);
+    }
 
-	/**
-	 * While performing a multicast, the message
-	 * is effectively sent just to one other actor, then
-	 * the sender crashes.
-	 * 
-	 * This method tries to show the particular case
-	 * in which an actor is able to send a message
-	 * to one actor before crashing (this is what
-	 * this actor will do) and the receiving actor
-	 * crashes after seeing the message.
-	 * 
-	 * So no operational particiapant will see the
-	 * message, although some crashed node received
-	 * (and could have delivered) the message.
-	 * 
-	 * For this to happen we want to send the
-	 * message to any other node but the group manager
-	 * (which cannot crash). So we require at least
-	 * 3 actors (which means the group manager and two
-	 * participants) to be in the view.
-	 * 
-	 * Note:
-	 * The crash of the receiving actor is not defined here.
-	 * It's possible to obtain the scenario with a
-	 * particularly crafted configuration file
-	 * (test1.json tries to describe exactly this scenario).
-	 */
-	private void multicastOneAndCrash() {
-		if (! this.canSend)
-			return;
-		// this node cannot send messages
-		// until this one is completed
-		this.canSend = false;
+    public Participant(String groupManagerPath, boolean manualMode) {
+        super(manualMode);
+        this.crashed = false;
+        this.isGmAlive = false;
+        this.groupManager = null;
+        getContext().actorSelection(groupManagerPath)
+                .tell(new JoinRequestMsg(),
+                        this.getSelf());
+    }
 
-		Set<ActorRef> members = this.view.members;
-		if (members.size() < 3) {
-			System.out
-				  .printf("%d P-%d P-%s WARNING: too few view" +
-						  " members. Two participants and the" +
-						  " group manager are required." +
-						  " Crash denied. Multicast aborted. \n",
-						  System.currentTimeMillis(),
-						  this.id,
-						  this.id);
-			return;
-		}
+    public Participant(String groupManagerPath) {
+        this(groupManagerPath, false);
+    }
 
-		/*
-		 * Avoid choosing the group manager
-		 * or self as receiver.
-		 */
-		Iterator<ActorRef> memberIterator = members.iterator();
-		ActorRef receiver = null;
-		boolean found = false;
-		while (memberIterator.hasNext() && !found) {
-			receiver = memberIterator.next();
-			
-			if (!(receiver.equals(this.getSelf()) ||
-				  receiver.equals(this.groupManager)))
-				found = true;
-		}
-		Message message = new Message(this.id,
-									  this.multicastId,
-									  this.tempView.id,
-									  false);
-		this.multicastId += 1;
-		receiver.tell(message, this.getSelf());
+    public static Props props(ActorRef groupManager,
+            boolean manualMode) {
+        return Props.create(Participant.class,
+                () -> new Participant(groupManager, manualMode));
+    }
 
-		// let the sender crash
-		this.crash();
-	}
-	
-	protected void onSendMutlicastCrashMsg(MulticastCrashMsg crashMsg) {
-		switch (crashMsg.type) {
-		case MULTICAST_N_CRASH:
-			System.out
-				  .printf("%d P-%d P-%s INFO process will multicast then crash\n",
-						  System.currentTimeMillis(),
-						  this.id,
-						  this.id);
-			this.multicastAndCrash();
-			break;
-		case MULTICAST_ONE_N_CRASH:
-			System.out
-				  .printf("%d P-%d P-%s INFO process will multicast to one" +
-						  " particpant then crash\n",
-						  System.currentTimeMillis(),
-						  this.id,
-						  this.id);
-			this.multicastOneAndCrash();
-			break;
-		}
-	}
-	
-	protected void onReceivingMulticastCrashMsg(ReceivingCrashMsg crashMsg) {
-		this.ignoreMessageLabel = crashMsg.eventLabel;
-		switch (crashMsg.type) {
-		case RECEIVE_MULTICAST_N_CRASH:
-			this.receiveMessageAndCrash = true;
-			System.out
-				  .printf("%d P-%d P-%s INFO process set to crash on" +
-						  " next message receiving. \n",
-						  System.currentTimeMillis(),
-						  this.id,
-						  this.id);
-			break;
-		case RECEIVE_VIEW_N_CRASH:
-			this.receiveViewChangeAndCrash = true;
-			System.out
-			  .printf("%d P-%d P-%s INFO process set to crash on" +
-					  " next view-change message receiving. \n",
-					  System.currentTimeMillis(),
-					  this.id,
-					  this.id);
-			break;
-		}
-	}
-	
-	private void onCheckGmAliveMsg(CheckGmAliveMsg msg) {
-		if(crashed)
-			return;
-		/*
-		//DEBUG:
-		System.out
-			  .printf("%d P-%d P-%d INFO Checking Group Manager\n",
-					  System.currentTimeMillis(),
-					  this.id,
-					  this.id);
-		*/
-		if(!isGmAlive) {
-			System.out
-				  .printf("%d P-%d P-%d INFO Group manager Unreachable." +
-						  " Exiting...\n",
-						  System.currentTimeMillis(),
-						  this.id,
-						  this.id);
-			this.getContext().stop(this.getSelf());
-			this.getContext().system().terminate();
-		} else {
-			isGmAlive = false;
-			groupManager.tell(new GmAliveMsg(), this.getSelf());
-			this.scheduleMessage(new CheckGmAliveMsg(),
-								 ALIVE_TIMEOUT / 2);
-		}
-	}
-	
-	private void onGmAliveMsg(GmAliveMsg msg) {
-		if (crashed)
-			return;
+    public static Props props(ActorRef groupManager) {
+        return props(groupManager, false);
+    }
 
-		isGmAlive = true;
-		/*
-		// DEBUG:
-		System.out
-			  .printf("%d P-%d P-%d received_gm_alive_message\n",
-					  System.currentTimeMillis(),
-					  this.id,
-					  this.id);
-	  	*/
-	}
+    public static Props props(String groupManagerPath,
+            boolean manualMode) {
+        return Props.create(Participant.class,
+                () -> new Participant(groupManagerPath, manualMode));
+    }
 
-	@Override
-	public Receive createReceive() {
-		return receiveBuilder()
-				.match(JoinRequestMsg.class, this::onJoinMsg)
-				.match(StopMulticastMsg.class, this::onStopMulticast)
-				.match(ViewChangeMsg.class, this::onViewChangeMsg)
-				.match(FlushMsg.class, this::onFlushMsg)
-				.match(Message.class, this::onReceiveMessage)
-				.match(SendMulticastMsg.class, this::onSendMulticastMsg)
-				.match(CrashMsg.class, this::onCrashMsg)
-				.match(ReviveMsg.class, this::onReviveMsg)
-				.match(MulticastCrashMsg.class,
-						this::onSendMutlicastCrashMsg)
-				.match(ReceivingCrashMsg.class,
-						this::onReceivingMulticastCrashMsg)		
-				.match(AliveMsg.class, this::onAliveMsg)
-				.match(CheckGmAliveMsg.class, this::onCheckGmAliveMsg)
-				.match(GmAliveMsg.class, this::onGmAliveMsg)
-				.build();
-	}
+    public static Props props(String groupManagerPath) {
+        return props(groupManagerPath, false);
+    }
+
+    // --------------------------------
+
+    /*
+     * When a participant receives a JoinRequestMsg it's only when the
+     * Group Manager answers to the request with the ID for the
+     * participant.
+     */
+    private void onJoinMsg(JoinRequestMsg joinResponse) {
+        if (this.crashed)
+            return;
+        this.id = joinResponse.idAssigned;
+        this.groupManager = this.getSender();
+        System.out
+                .printf("%d P-%d P-%s JOIN-ASSOC\n",
+                        System.currentTimeMillis(),
+                        this.id,
+                        this.getSelf().path().name());
+
+        this.isGmAlive = true;
+        this.getSelf().tell(new CheckGmAliveMsg(), this.getSelf());
+    }
+
+    @Override
+    protected void onStopMulticast(StopMulticastMsg stopMsg) {
+        if (this.crashed)
+            return;
+        super.onStopMulticast(stopMsg);
+    }
+
+    @Override
+    protected void onViewChangeMsg(ViewChangeMsg viewChange) {
+        if (this.crashed)
+            return;
+
+        if (this.receiveViewChangeAndCrash) {
+            this.receiveViewChangeAndCrash = false;
+            this.crashAfterViewChange(viewChange);
+        } else
+            super.onViewChangeMsg(viewChange);
+    }
+
+    /**
+     * Replicate the behavior of the normal view-change method, but
+     * instead of sending the FLUSH messages the node crashes.
+     * 
+     * @param viewChange
+     */
+    protected void crashAfterViewChange(ViewChangeMsg viewChange) {
+        System.out
+                .printf("%d P-%d P-%d INFO started_view_change V%d\n",
+                        System.currentTimeMillis(),
+                        this.id,
+                        this.id,
+                        viewChange.id);
+        this.flushesReceived.clear();
+        this.tempView = new View(viewChange.id,
+                viewChange.members);
+        for (Message message : messagesUnstable) {
+            for (ActorRef member : this.tempView.members) {
+                member.tell(message, this.getSelf());
+            }
+        }
+        this.crash();
+        // FLUSHES are not sent
+    }
+
+    @Override
+    protected void onFlushMsg(FlushMsg flushMsg) {
+        if (this.crashed)
+            return;
+        super.onFlushMsg(flushMsg);
+    }
+
+    @Override
+    protected void onReceiveMessage(Message message) {
+        if (this.crashed)
+            return;
+        super.onReceiveMessage(message);
+
+        if (this.receiveMessageAndCrash &&
+                !this.ignoreMessageLabel.equals(message.getLabel())) {
+            // remove the flag (so when the node revives
+            // it won't crash suddenly).
+            // Then let the node crash.
+            this.receiveMessageAndCrash = false;
+            this.crash();
+        }
+    }
+
+    private void crash() {
+        System.out
+                .printf("%d P-%d P-%d CRASHED\n",
+                        System.currentTimeMillis(),
+                        this.id,
+                        this.id);
+        this.resetParticipant();
+        this.crashed = true;
+        this.canSend = false;
+    }
+
+    // EXT: external behavior message handlers --
+
+    /**
+     * This message was used before having the event-handler system
+     * based on config.
+     * 
+     * Now the message is kept to let the node crash from the outside
+     * and without using a config file (we won't use this approach).
+     * 
+     * We make a node crash after a particular event, like multicast and
+     * crash, or receive a message and crash.
+     * 
+     * @param crashMsg
+     */
+    private void onCrashMsg(CrashMsg crashMsg) {
+        this.crash();
+    }
+
+    private void onAliveMsg(AliveMsg aliveMsg) {
+        if (this.crashed)
+            return;
+        this.getSender()
+                .tell(new AliveMsg(this.aliveId, this.id),
+                        this.getSelf());
+    }
+
+    /**
+     * Turn off crashed mode and ask the group manager to join.
+     * 
+     * @param reviveMsg
+     */
+    private void onReviveMsg(ReviveMsg reviveMsg) {
+        this.crashed = false;
+        // TODO: remove the node from the crashed node
+        this.groupManager.tell(new JoinRequestMsg(), this.getSelf());
+    }
+
+    // implementing sending and receiving -------
+    // variants with crashes --------------------
+
+    private void multicastAndCrash() {
+        if (!this.canSend)
+            return;
+
+        // this node cannot send message
+        // until this one is completed
+        this.canSend = false;
+
+        Message message = new Message(this.id,
+                this.multicastId,
+                this.tempView.id,
+                false);
+        this.multicastId += 1;
+
+        for (ActorRef member : this.view.members) {
+            member.tell(message, this.getSelf());
+        }
+        // Do not send stable messages.
+        // Crash instead
+        this.crash();
+    }
+
+    /**
+     * While performing a multicast, the message is effectively sent
+     * just to one other actor, then the sender crashes.
+     * 
+     * This method tries to show the particular case in which an actor
+     * is able to send a message to one actor before crashing (this is
+     * what this actor will do) and the receiving actor crashes after
+     * seeing the message.
+     * 
+     * So no operational particiapant will see the message, although
+     * some crashed node received (and could have delivered) the
+     * message.
+     * 
+     * For this to happen we want to send the message to any other node
+     * but the group manager (which cannot crash). So we require at
+     * least 3 actors (which means the group manager and two
+     * participants) to be in the view.
+     * 
+     * Note: The crash of the receiving actor is not defined here. It's
+     * possible to obtain the scenario with a particularly crafted
+     * configuration file (test1.json tries to describe exactly this
+     * scenario).
+     */
+    private void multicastOneAndCrash() {
+        if (!this.canSend)
+            return;
+        // this node cannot send messages
+        // until this one is completed
+        this.canSend = false;
+
+        Set<ActorRef> members = this.view.members;
+        if (members.size() < 3) {
+            System.out
+                    .printf("%d P-%d P-%s WARNING: too few view" +
+                            " members. Two participants and the" +
+                            " group manager are required." +
+                            " Crash denied. Multicast aborted. \n",
+                            System.currentTimeMillis(),
+                            this.id,
+                            this.id);
+            return;
+        }
+
+        /*
+         * Avoid choosing the group manager or self as receiver.
+         */
+        Iterator<ActorRef> memberIterator = members.iterator();
+        ActorRef receiver = null;
+        boolean found = false;
+        while (memberIterator.hasNext() && !found) {
+            receiver = memberIterator.next();
+
+            if (!(receiver.equals(this.getSelf()) ||
+                    receiver.equals(this.groupManager)))
+                found = true;
+        }
+        Message message = new Message(this.id,
+                this.multicastId,
+                this.tempView.id,
+                false);
+        this.multicastId += 1;
+        receiver.tell(message, this.getSelf());
+
+        // let the sender crash
+        this.crash();
+    }
+
+    protected void onSendMutlicastCrashMsg(MulticastCrashMsg crashMsg) {
+        switch (crashMsg.type) {
+        case MULTICAST_N_CRASH:
+            System.out
+                    .printf(
+                            "%d P-%d P-%s INFO process will multicast then crash\n",
+                            System.currentTimeMillis(),
+                            this.id,
+                            this.id);
+            this.multicastAndCrash();
+            break;
+        case MULTICAST_ONE_N_CRASH:
+            System.out
+                    .printf(
+                            "%d P-%d P-%s INFO process will multicast to one" +
+                                    " particpant then crash\n",
+                            System.currentTimeMillis(),
+                            this.id,
+                            this.id);
+            this.multicastOneAndCrash();
+            break;
+        }
+    }
+
+    protected void onReceivingMulticastCrashMsg(
+            ReceivingCrashMsg crashMsg) {
+        this.ignoreMessageLabel = crashMsg.eventLabel;
+        switch (crashMsg.type) {
+        case RECEIVE_MULTICAST_N_CRASH:
+            this.receiveMessageAndCrash = true;
+            System.out
+                    .printf("%d P-%d P-%s INFO process set to crash on" +
+                            " next message receiving. \n",
+                            System.currentTimeMillis(),
+                            this.id,
+                            this.id);
+            break;
+        case RECEIVE_VIEW_N_CRASH:
+            this.receiveViewChangeAndCrash = true;
+            System.out
+                    .printf("%d P-%d P-%s INFO process set to crash on" +
+                            " next view-change message receiving. \n",
+                            System.currentTimeMillis(),
+                            this.id,
+                            this.id);
+            break;
+        }
+    }
+
+    private void onCheckGmAliveMsg(CheckGmAliveMsg msg) {
+        if (crashed)
+            return;
+        /*
+         * //DEBUG: System.out
+         * .printf("%d P-%d P-%d INFO Checking Group Manager\n",
+         * System.currentTimeMillis(), this.id, this.id);
+         */
+        if (!isGmAlive) {
+            System.out
+                    .printf("%d P-%d P-%d INFO Group manager Unreachable." +
+                            " Exiting...\n",
+                            System.currentTimeMillis(),
+                            this.id,
+                            this.id);
+            this.getContext().stop(this.getSelf());
+            this.getContext().system().terminate();
+        } else {
+            isGmAlive = false;
+            groupManager.tell(new GmAliveMsg(), this.getSelf());
+            this.scheduleMessage(new CheckGmAliveMsg(),
+                    ALIVE_TIMEOUT / 2);
+        }
+    }
+
+    private void onGmAliveMsg(GmAliveMsg msg) {
+        if (crashed)
+            return;
+
+        isGmAlive = true;
+        /*
+         * // DEBUG: System.out
+         * .printf("%d P-%d P-%d received_gm_alive_message\n",
+         * System.currentTimeMillis(), this.id, this.id);
+         */
+    }
+
+    @Override
+    public Receive createReceive() {
+        return receiveBuilder()
+                .match(JoinRequestMsg.class, this::onJoinMsg)
+                .match(StopMulticastMsg.class, this::onStopMulticast)
+                .match(ViewChangeMsg.class, this::onViewChangeMsg)
+                .match(FlushMsg.class, this::onFlushMsg)
+                .match(Message.class, this::onReceiveMessage)
+                .match(SendMulticastMsg.class, this::onSendMulticastMsg)
+                .match(CrashMsg.class, this::onCrashMsg)
+                .match(ReviveMsg.class, this::onReviveMsg)
+                .match(MulticastCrashMsg.class,
+                        this::onSendMutlicastCrashMsg)
+                .match(ReceivingCrashMsg.class,
+                        this::onReceivingMulticastCrashMsg)
+                .match(AliveMsg.class, this::onAliveMsg)
+                .match(CheckGmAliveMsg.class, this::onCheckGmAliveMsg)
+                .match(GmAliveMsg.class, this::onGmAliveMsg)
+                .build();
+    }
 }
