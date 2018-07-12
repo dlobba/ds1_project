@@ -83,7 +83,7 @@ public abstract class EventsController extends BaseParticipant {
     protected void scheduleStep() {
         int time = new Random().nextInt(MULTICAST_INTERLEAVING);
         this.scheduleMessage(new SendStepMsg(),
-                time);
+                time, this.getSelf());
     }
 
     /**

@@ -37,8 +37,8 @@ public class GroupManager extends EventsController {
      * are seen as crashed nodes.
      */
     private Set<ActorRef> alivesReceived;
-    private static final int ALIVE_TIMEOUT =
-            BaseParticipant.MULTICAST_INTERLEAVING / 2;
+    protected static final int ALIVE_TIMEOUT =
+            BaseParticipant.MULTICAST_INTERLEAVING;
 
     private void initGroupManager(int id) {
         this.id = id;
@@ -183,11 +183,11 @@ public class GroupManager extends EventsController {
      * then issue a view change.
      */
     private void onCheckViewMsg(CheckViewMsg msg) {
-        /*
-         * // DEBUG:
-         * System.out.printf("%d P-%d P-%d INFO Checking survivors\n",
-         * System.currentTimeMillis(), this.id, this.id);
-         */
+        
+         // DEBUG:
+         System.out.printf("%d P-%d P-%d INFO Checking survivors\n",
+         System.currentTimeMillis(), this.id, this.id);
+         
         if (alivesReceived.size() > 0) {
             /*
              * here the view must be changed. A node crashed. New
@@ -224,23 +224,24 @@ public class GroupManager extends EventsController {
 
             for (ActorRef participant : participants) {
                 alivesReceived.add(participant);
-                participant.tell(new AliveMsg(this.aliveId, this.id),
-                        this.getSelf());
+                scheduleMessage(new AliveMsg(this.aliveId, this.id),
+                		ALIVE_TIMEOUT / 2,
+                		participant);
             }
             aliveId++;
         }
         this.scheduleMessage(new CheckViewMsg(),
-                ALIVE_TIMEOUT / 2);
+                ALIVE_TIMEOUT * 2, this.getSelf());
     }
 
     private void onAliveMsg(AliveMsg msg) {
         alivesReceived.remove(this.getSender());
-        /*
-         * //DEBUG:
-         * System.out.printf("%d P-%d P-%d received_alive_message %s\n",
-         * System.currentTimeMillis(), this.id, msg.senderID,
-         * msg.toString());
-         */
+        
+         //DEBUG:
+         System.out.printf("%d P-%d P-%d received_alive_message %s\n",
+         System.currentTimeMillis(), this.id, msg.senderID,
+         msg.toString());
+         
     }
 
     /**
@@ -253,9 +254,9 @@ public class GroupManager extends EventsController {
      * @param msg
      */
     private void onGmAliveMsg(GmAliveMsg msg) {
-        this.getSender()
-                .tell(new GmAliveMsg(),
-                        this.getSelf());
+    	scheduleMessage(new GmAliveMsg(), 
+    			GroupManager.ALIVE_TIMEOUT / 2, 
+    			this.getSender());
     }
 
     @Override

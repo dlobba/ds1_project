@@ -83,7 +83,7 @@ public class BaseParticipant extends AbstractActor {
         }
     }
 
-    protected void scheduleMessage(Object message, int after) {
+    protected void scheduleMessage(Object message, int after, ActorRef receiver) {
         if (message == null)
             return;
         this.getContext()
@@ -91,7 +91,7 @@ public class BaseParticipant extends AbstractActor {
                 .scheduler()
                 .scheduleOnce(Duration.create(after,
                         TimeUnit.SECONDS),
-                        this.getSelf(),
+                        receiver,
                         message,
                         getContext().system().dispatcher(),
                         this.getSelf());
@@ -156,17 +156,22 @@ public class BaseParticipant extends AbstractActor {
      * 
      * @param message
      */
-    protected void sendMessage(Object message, int baseTime) {
-
+    protected void sendMessage(Object message, int baseTime, ActorRef receiver) {
+    	if(message.getClass().getName() == "Message")
+    		sendDataMessage(message, baseTime, receiver);
+    	else
+    		sendControlMessage(message, baseTime, receiver);
     }
 
-//    protected void sendControlMessage(Object message) {
-//
-//    }
-//
-//    protected void sendDataMessage(Object message) {
-//
-//    }
+    protected void sendControlMessage(Object message, int baseTime, ActorRef receiver) {
+    	int time = new Random().nextInt(GroupManager.ALIVE_TIMEOUT / 2) + baseTime;
+    	scheduleMessage(message, time, receiver);
+    }
+
+    protected void sendDataMessage(Object message, int baseTime, ActorRef receiver) {
+    	int time = new Random().nextInt(MULTICAST_INTERLEAVING / 2) + baseTime;
+    	scheduleMessage(message, time, receiver);
+    }
 
     protected Set<ActorRef> getFlushSenders(int currentView) {
         Set<ActorRef> senders = new HashSet<>();
@@ -220,15 +225,16 @@ public class BaseParticipant extends AbstractActor {
         // TODO: should we send all message up to this view?
         for (Message message : messagesUnstable) {
             for (ActorRef member : this.tempView.members) {
-                member.tell(message, this.getSelf());
+                sendMessage(message, MULTICAST_INTERLEAVING, member);
             }
         }
         // FLUSH messages
         for (ActorRef member : this.tempView.members) {
-            member.tell(new FlushMsg(this.id,
+        	scheduleMessage(new FlushMsg(this.id,
                     this.tempView.id,
                     this.getSelf()),
-                    this.getSelf());
+                    MULTICAST_INTERLEAVING,
+                    member);
         }
     }
 
@@ -300,8 +306,8 @@ public class BaseParticipant extends AbstractActor {
          */
         if (this.manualMode)
             return;
-        int time = new Random().nextInt(MULTICAST_INTERLEAVING);
-        this.scheduleMessage(new SendMulticastMsg(), time);
+        this.scheduleMessage(new SendMulticastMsg(), MULTICAST_INTERLEAVING, 
+        		this.getSelf());
     }
 
     private void multicast() {
@@ -320,12 +326,12 @@ public class BaseParticipant extends AbstractActor {
         this.multicastId += 1;
 
         for (ActorRef member : this.view.members) {
-            member.tell(message, this.getSelf());
+        	scheduleMessage(message, MULTICAST_INTERLEAVING, member);
         }
         // STABLE messages
         message = new Message(message, true);
         for (ActorRef member : this.view.members) {
-            member.tell(message, this.getSelf());
+        	scheduleMessage(message, MULTICAST_INTERLEAVING, member);
         }
         this.canSend = true;
     }

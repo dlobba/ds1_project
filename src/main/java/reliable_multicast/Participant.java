@@ -46,9 +46,10 @@ public class Participant extends BaseParticipant {
         super(manualMode);
         this.groupManager = groupManager;
         this.crashed = false;
-        this.isGmAlive = false;
-        this.groupManager.tell(new JoinRequestMsg(),
-                this.getSelf());
+        this.isGmAlive = true;
+        scheduleMessage(new JoinRequestMsg(), 
+        		MULTICAST_INTERLEAVING, 
+        		groupManager);
     }
 
     public Participant(ActorRef groupManager) {
@@ -58,8 +59,12 @@ public class Participant extends BaseParticipant {
     public Participant(String groupManagerPath, boolean manualMode) {
         super(manualMode);
         this.crashed = false;
-        this.isGmAlive = false;
+        this.isGmAlive = true;
         this.groupManager = null;
+        
+        // TO-DO: implement a scheduleMessage variation that supports
+        // ActorPath
+        
         getContext().actorSelection(groupManagerPath)
                 .tell(new JoinRequestMsg(),
                         this.getSelf());
@@ -106,8 +111,6 @@ public class Participant extends BaseParticipant {
                         System.currentTimeMillis(),
                         this.id,
                         this.getSelf().path().name());
-
-        this.isGmAlive = true;
         this.getSelf().tell(new CheckGmAliveMsg(), this.getSelf());
     }
 
@@ -370,11 +373,12 @@ public class Participant extends BaseParticipant {
     private void onCheckGmAliveMsg(CheckGmAliveMsg msg) {
         if (crashed)
             return;
-        /*
-         * //DEBUG: System.out
-         * .printf("%d P-%d P-%d INFO Checking Group Manager\n",
-         * System.currentTimeMillis(), this.id, this.id);
-         */
+        
+         //DEBUG: 
+         System.out
+         .printf("%d P-%d P-%d INFO Checking Group Manager\n",
+         System.currentTimeMillis(), this.id, this.id);
+         
         if (!isGmAlive) {
             System.out
                     .printf("%d P-%d P-%d INFO Group manager Unreachable." +
@@ -386,9 +390,9 @@ public class Participant extends BaseParticipant {
             this.getContext().system().terminate();
         } else {
             isGmAlive = false;
-            groupManager.tell(new GmAliveMsg(), this.getSelf());
+            scheduleMessage(new GmAliveMsg(), ALIVE_TIMEOUT / 2, groupManager);
             this.scheduleMessage(new CheckGmAliveMsg(),
-                    ALIVE_TIMEOUT / 2);
+                    ALIVE_TIMEOUT * 2, this.getSelf());
         }
     }
 
@@ -397,11 +401,12 @@ public class Participant extends BaseParticipant {
             return;
 
         isGmAlive = true;
-        /*
-         * // DEBUG: System.out
-         * .printf("%d P-%d P-%d received_gm_alive_message\n",
-         * System.currentTimeMillis(), this.id, this.id);
-         */
+        
+         // DEBUG: 
+         System.out
+         .printf("%d P-%d P-%d received_gm_alive_message\n",
+         System.currentTimeMillis(), this.id, this.id);
+         
     }
 
     @Override
