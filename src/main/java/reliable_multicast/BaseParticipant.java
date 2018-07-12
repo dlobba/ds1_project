@@ -25,7 +25,8 @@ public class BaseParticipant extends AbstractActor {
     // --------------------------------------
 
     public static final int MULTICAST_INTERLEAVING = 10;
-    public static final int MAX_DELAY = MULTICAST_INTERLEAVING / 2;
+    // not in using as of now...
+    //public static final int MAX_DELAY = MULTICAST_INTERLEAVING / 2;
 
     protected int id;
     protected int multicastId;
@@ -99,13 +100,73 @@ public class BaseParticipant extends AbstractActor {
     /**
      *
      * Send the message simulating a network delay. The delay should be
-     * lower than the MULTICAST_INTERLEAVING / 2, so that which is the
-     *
+     * added to a base time, depending on the type of message we want to
+     * send. Let's make an assumption now (we should ask to the
+     * professor later on if this is fine). Let's suppose that we should
+     * implement delays, but delays shouldn't lead to crash failure. In
+     * order to so, we could put half of the given base time as value
+     * for the delay.
+     * 
+     * If this is not the case, then suppose that we put a limit T / 2,
+     * where T is the base interleaving for a multicast operation. Then
+     * we also have that the interleaving for an heartbeat message is T
+     * / 2 (as we definded it).
+     * 
+     * Since heartbeat messages are subject to delays this means that an
+     * heartbeat message could take T/2 + T / 2 > T / 2. This would lead
+     * to seeing a node as crashed even if it is not. Since the delay
+     * trigger the timeout of the heartbeat message.
+     * 
+     * What do you think? How we should manage delays?
+     * 
+     * Another important thing: ------------------------ As you may have
+     * noticed, I think that it's better to differentiate between
+     * control and data message using two separate method and define a
+     * common base time for the two. I put the two methods here, but you
+     * are free to move them where you want. For example control
+     * messages are issue either by group manager and by the participant
+     * to send heartbeat messages, so in order to avoid duplicated code
+     * this class could be a good fit for them (but you should import
+     * the definition of the heartbeat interleaving here for
+     * correctness).
+     * 
+     * Once you have done this, replace occurrences of old sending
+     * messages using the new abstraction methods (sendData or
+     * sendControl message, respectively). Be careful to think about
+     * each scenario where these methods should be used as opposed to
+     * the normal method. Potentially every .tell method could be
+     * replaced with this, but I think that we should use:
+     * 
+     * * tell methods: for internal event scheduling and for control
+     * messages sent by the EventsController (we should say this during
+     * the presentation)
+     * 
+     * * sendXMessage: for every message (data or
+     * control message) that is sent by an actor to another one on a
+     * different location.
+     * 
+     * A final note. To implement delays, remember not to use
+     * Thread.sleep for the reason I told you before. Use instead
+     * a non blocking approach. Bare in mind that you are
+     * on the bello_che_pronto branch, so you should find a method
+     * that should fit this already done ;)
+     * 
+     * PS: once you have completed the work, keep only serious
+     * parts of this comment.
+     * 
      * @param message
      */
-    protected void sendMessage(Object message) {
+    protected void sendMessage(Object message, int baseTime) {
 
     }
+
+//    protected void sendControlMessage(Object message) {
+//
+//    }
+//
+//    protected void sendDataMessage(Object message) {
+//
+//    }
 
     protected Set<ActorRef> getFlushSenders(int currentView) {
         Set<ActorRef> senders = new HashSet<>();
@@ -223,14 +284,14 @@ public class BaseParticipant extends AbstractActor {
     }
 
     /**
-     * Schedule a new multicast. Be careful that here the bahavior will
+     * Schedule a new multicast. Be careful that here the behavior will
      * differ between EventsController and normal Participants.
      *
-     * In the case of a participant, the scheduling should be ignore if
+     * In the case of a participant, the scheduling should be ignored if
      * in manual mode.
      *
      * While in the case of the EventController the scheduling
-     * represents a step of batch mutlicasts.
+     * represents a step of batch multicasts.
      */
     protected void scheduleMulticast() {
         /*
@@ -240,8 +301,7 @@ public class BaseParticipant extends AbstractActor {
         if (this.manualMode)
             return;
         int time = new Random().nextInt(MULTICAST_INTERLEAVING);
-        this.scheduleMessage(new SendMulticastMsg(),
-                time);
+        this.scheduleMessage(new SendMulticastMsg(), time);
     }
 
     private void multicast() {
@@ -252,7 +312,8 @@ public class BaseParticipant extends AbstractActor {
         // until this one is completed
         this.canSend = false;
 
-        Message message = new Message(this.id,
+        Message message = new Message(
+                this.id,
                 this.multicastId,
                 this.tempView.id,
                 false);
