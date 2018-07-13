@@ -16,7 +16,7 @@ public class Participant extends BaseParticipant {
     };
 
     private static final int ALIVE_TIMEOUT =
-            BaseParticipant.MULTICAST_INTERLEAVING / 2;
+            BaseParticipant.MULTICAST_INTERLEAVING;
 
     protected ActorRef groupManager;
     protected boolean crashed;
@@ -48,7 +48,7 @@ public class Participant extends BaseParticipant {
         this.crashed = false;
         this.isGmAlive = true;
         scheduleMessage(new JoinRequestMsg(), 
-        		MULTICAST_INTERLEAVING, 
+        		MULTICAST_INTERLEAVING / 2, 
         		groupManager);
     }
 
@@ -151,7 +151,7 @@ public class Participant extends BaseParticipant {
                 viewChange.members);
         for (Message message : messagesUnstable) {
             for (ActorRef member : this.tempView.members) {
-                member.tell(message, this.getSelf());
+            	scheduleMessage(message, MULTICAST_INTERLEAVING / 2, member);
             }
         }
         this.crash();
@@ -213,9 +213,9 @@ public class Participant extends BaseParticipant {
     private void onAliveMsg(AliveMsg aliveMsg) {
         if (this.crashed)
             return;
-        this.getSender()
-                .tell(new AliveMsg(this.aliveId, this.id),
-                        this.getSelf());
+        scheduleMessage(new AliveMsg(this.aliveId, this.id), 
+        		ALIVE_TIMEOUT / 2, 
+        		this.getSender());
     }
 
     /**
@@ -226,7 +226,7 @@ public class Participant extends BaseParticipant {
     private void onReviveMsg(ReviveMsg reviveMsg) {
         this.crashed = false;
         // TODO: remove the node from the crashed node
-        this.groupManager.tell(new JoinRequestMsg(), this.getSelf());
+        scheduleMessage(new JoinRequestMsg(), MULTICAST_INTERLEAVING / 2, this.groupManager);
     }
 
     // implementing sending and receiving -------
@@ -247,7 +247,7 @@ public class Participant extends BaseParticipant {
         this.multicastId += 1;
 
         for (ActorRef member : this.view.members) {
-            member.tell(message, this.getSelf());
+        	scheduleMessage(message, MULTICAST_INTERLEAVING / 2, member);
         }
         // Do not send stable messages.
         // Crash instead
@@ -315,7 +315,7 @@ public class Participant extends BaseParticipant {
                 this.tempView.id,
                 false);
         this.multicastId += 1;
-        receiver.tell(message, this.getSelf());
+        scheduleMessage(message, MULTICAST_INTERLEAVING / 2, receiver);
 
         // let the sender crash
         this.crash();
@@ -336,7 +336,7 @@ public class Participant extends BaseParticipant {
             System.out
                     .printf(
                             "%d P-%d P-%s INFO process will multicast to one" +
-                                    " particpant then crash\n",
+                                    " participant then crash\n",
                             System.currentTimeMillis(),
                             this.id,
                             this.id);
@@ -397,10 +397,10 @@ public class Participant extends BaseParticipant {
     }
 
     private void onGmAliveMsg(GmAliveMsg msg) {
-        if (crashed)
+    	 isGmAlive = true;
+    	
+    	if (crashed)
             return;
-
-        isGmAlive = true;
         
          // DEBUG: 
          System.out

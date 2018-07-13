@@ -225,7 +225,7 @@ public class BaseParticipant extends AbstractActor {
         // TODO: should we send all message up to this view?
         for (Message message : messagesUnstable) {
             for (ActorRef member : this.tempView.members) {
-                sendMessage(message, MULTICAST_INTERLEAVING, member);
+                sendMessage(message, MULTICAST_INTERLEAVING / 2, member);
             }
         }
         // FLUSH messages
@@ -233,7 +233,7 @@ public class BaseParticipant extends AbstractActor {
         	scheduleMessage(new FlushMsg(this.id,
                     this.tempView.id,
                     this.getSelf()),
-                    MULTICAST_INTERLEAVING,
+                    MULTICAST_INTERLEAVING / 2,
                     member);
         }
     }
@@ -306,7 +306,7 @@ public class BaseParticipant extends AbstractActor {
          */
         if (this.manualMode)
             return;
-        this.scheduleMessage(new SendMulticastMsg(), MULTICAST_INTERLEAVING, 
+        this.scheduleMessage(new SendMulticastMsg(), MULTICAST_INTERLEAVING / 2, 
         		this.getSelf());
     }
 
@@ -326,12 +326,12 @@ public class BaseParticipant extends AbstractActor {
         this.multicastId += 1;
 
         for (ActorRef member : this.view.members) {
-        	scheduleMessage(message, MULTICAST_INTERLEAVING, member);
+        	scheduleMessage(message, MULTICAST_INTERLEAVING / 2, member);
         }
         // STABLE messages
         message = new Message(message, true);
         for (ActorRef member : this.view.members) {
-        	scheduleMessage(message, MULTICAST_INTERLEAVING, member);
+        	scheduleMessage(message, MULTICAST_INTERLEAVING / 2, member);
         }
         this.canSend = true;
     }
