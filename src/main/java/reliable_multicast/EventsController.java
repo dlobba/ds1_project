@@ -14,6 +14,7 @@ import reliable_multicast.messages.ReviveMsg;
 import reliable_multicast.messages.events_messages.*;
 import reliable_multicast.messages.events_messages.MulticastCrashMsg.MutlicastCrashType;
 import reliable_multicast.messages.events_messages.ReceivingCrashMsg.ReceivingCrashType;
+import reliable_multicast.messages.step_message.StepMessage;
 import reliable_multicast.utils.EventsList;
 import reliable_multicast.utils.IdRefMap;
 import reliable_multicast.utils.StepProcessMap;
@@ -144,6 +145,11 @@ public abstract class EventsController extends BaseParticipant {
                 this.id,
                 this.id,
                 tmpStep);
+        
+        //DEBUGGING PURPOSE ONLY
+        for(ActorRef member : tempView.members)
+        	member.tell(new StepMessage(tmpStep), this.getSelf());
+        
         /*
          * FIRST CHECK: the step should be stable, so the two views must
          * be the same. Only in this way we can be confident that

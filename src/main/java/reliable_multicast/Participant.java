@@ -10,6 +10,7 @@ import akka.util.Timeout;
 import reliable_multicast.messages.*;
 import reliable_multicast.messages.events_messages.MulticastCrashMsg;
 import reliable_multicast.messages.events_messages.ReceivingCrashMsg;
+import reliable_multicast.messages.step_message.StepMessage;
 import scala.concurrent.Await;
 
 public class Participant extends BaseParticipant {
@@ -418,6 +419,15 @@ public class Participant extends BaseParticipant {
          System.currentTimeMillis(), this.id, this.id);
          
     }
+    
+    // DEBUG:
+    private void onStepMessage(StepMessage msg) {
+    	System.out.printf("%d P-%d P-%s INFO step-%d\n",
+                System.currentTimeMillis(),
+                this.id,
+                this.id,
+                msg.id);
+    }
 
     @Override
     public Receive createReceive() {
@@ -437,6 +447,8 @@ public class Participant extends BaseParticipant {
                 .match(AliveMsg.class, this::onAliveMsg)
                 .match(CheckGmAliveMsg.class, this::onCheckGmAliveMsg)
                 .match(GmAliveMsg.class, this::onGmAliveMsg)
+                //DEBUG:
+                .match(StepMessage.class,  this::onStepMessage)
                 .build();
     }
 }
