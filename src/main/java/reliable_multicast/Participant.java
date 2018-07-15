@@ -6,9 +6,11 @@ import java.util.Set;
 
 import akka.actor.ActorRef;
 import akka.actor.Props;
+import akka.util.Timeout;
 import reliable_multicast.messages.*;
 import reliable_multicast.messages.events_messages.MulticastCrashMsg;
 import reliable_multicast.messages.events_messages.ReceivingCrashMsg;
+import scala.concurrent.Await;
 
 public class Participant extends BaseParticipant {
 
@@ -62,12 +64,20 @@ public class Participant extends BaseParticipant {
         this.isGmAlive = true;
         this.groupManager = null;
         
-        // TO-DO: implement a scheduleMessage variation that supports
-        // ActorPath
-        
-        getContext().actorSelection(groupManagerPath)
-                .tell(new JoinRequestMsg(),
-                        this.getSelf());
+        Timeout timeout = new Timeout(5, java.util.concurrent.TimeUnit.SECONDS); 
+        ActorRef groupManagerRef;
+		try {
+			groupManagerRef = Await.result(getContext()
+					.actorSelection(groupManagerPath)
+					.resolveOne(timeout), 
+					timeout.duration());
+			
+			scheduleMessage(new JoinRequestMsg(),
+	        		MULTICAST_INTERLEAVING / 2,
+	        		groupManagerRef);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
     }
 
     public Participant(String groupManagerPath) {
