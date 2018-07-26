@@ -18,9 +18,6 @@ public class Participant extends BaseParticipant {
     public static class CheckGmAliveMsg implements Serializable {
     };
 
-    private static final int ALIVE_TIMEOUT =
-            BaseParticipant.MULTICAST_INTERLEAVING;
-
     protected ActorRef groupManager;
     protected boolean crashed;
 
@@ -50,9 +47,7 @@ public class Participant extends BaseParticipant {
         this.groupManager = groupManager;
         this.crashed = false;
         this.isGmAlive = true;
-        scheduleMessage(new JoinRequestMsg(), 
-        		MULTICAST_INTERLEAVING / 2, 
-        		groupManager);
+        sendNetworkMessage(new JoinRequestMsg(), groupManager);
     }
 
     public Participant(ActorRef groupManager) {
@@ -65,20 +60,22 @@ public class Participant extends BaseParticipant {
         this.isGmAlive = true;
         this.groupManager = null;
         
-        Timeout timeout = new Timeout(5, java.util.concurrent.TimeUnit.SECONDS); 
-        ActorRef groupManagerRef;
-		try {
-			groupManagerRef = Await.result(getContext()
-					.actorSelection(groupManagerPath)
-					.resolveOne(timeout), 
-					timeout.duration());
-			
-			scheduleMessage(new JoinRequestMsg(),
-	        		MULTICAST_INTERLEAVING / 2,
-	        		groupManagerRef);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+//        Timeout timeout = new Timeout(MAX_DELAY_TIME, java.util.concurrent.TimeUnit.SECONDS); 
+//        ActorRef groupManagerRef;
+//        try {
+//            groupManagerRef = Await.result(getContext()
+//                    .actorSelection(groupManagerPath)
+//                    .resolveOne(timeout), 
+//                    timeout.duration());
+//
+//            sendNetworkMessage(new JoinRequestMsg(),
+//                    groupManagerRef);
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+        getContext().actorSelection(groupManagerPath)
+        .tell(new JoinRequestMsg(),
+                this.getSelf());
     }
 
     public Participant(String groupManagerPath) {
@@ -117,12 +114,14 @@ public class Participant extends BaseParticipant {
             return;
         this.id = joinResponse.idAssigned;
         this.groupManager = this.getSender();
+        //this.isGmAlive = true;
         System.out
-                .printf("%d P-%d P-%s JOIN-ASSOC\n",
-                        System.currentTimeMillis(),
-                        this.id,
-                        this.getSelf().path().name());
-        this.getSelf().tell(new CheckGmAliveMsg(), this.getSelf());
+        .printf("%d P-%d P-%s JOIN-ASSOC\n",
+                System.currentTimeMillis(),
+                this.id,
+                this.getSelf().path().name());
+        // start checking the groupmanager
+        sendTimeoutMessage(new CheckGmAliveMsg());
     }
 
     @Override
@@ -162,7 +161,7 @@ public class Participant extends BaseParticipant {
                 viewChange.members);
         for (Message message : messagesUnstable) {
             for (ActorRef member : this.tempView.members) {
-            	scheduleMessage(message, MULTICAST_INTERLEAVING / 2, member);
+                sendNetworkMessage(message, member);
             }
         }
         this.crash();
@@ -224,9 +223,8 @@ public class Participant extends BaseParticipant {
     private void onAliveMsg(AliveMsg aliveMsg) {
         if (this.crashed)
             return;
-        scheduleMessage(new AliveMsg(this.aliveId, this.id), 
-        		ALIVE_TIMEOUT / 2, 
-        		this.getSender());
+        sendNetworkMessage(new AliveMsg(this.aliveId, this.id), 
+                this.getSender());
     }
 
     /**
@@ -237,7 +235,8 @@ public class Participant extends BaseParticipant {
     private void onReviveMsg(ReviveMsg reviveMsg) {
         this.crashed = false;
         // TODO: remove the node from the crashed node
-        scheduleMessage(new JoinRequestMsg(), MULTICAST_INTERLEAVING / 2, this.groupManager);
+        sendNetworkMessage(new JoinRequestMsg(),
+                this.groupManager);
     }
 
     // implementing sending and receiving -------
@@ -258,7 +257,7 @@ public class Participant extends BaseParticipant {
         this.multicastId += 1;
 
         for (ActorRef member : this.view.members) {
-        	scheduleMessage(message, MULTICAST_INTERLEAVING / 2, member);
+            sendNetworkMessage(message, member);
         }
         // Do not send stable messages.
         // Crash instead
@@ -326,7 +325,7 @@ public class Participant extends BaseParticipant {
                 this.tempView.id,
                 false);
         this.multicastId += 1;
-        scheduleMessage(message, MULTICAST_INTERLEAVING / 2, receiver);
+        sendNetworkMessage(message, receiver);
 
         // let the sender crash
         this.crash();
@@ -401,9 +400,8 @@ public class Participant extends BaseParticipant {
             this.getContext().system().terminate();
         } else {
             isGmAlive = false;
-            scheduleMessage(new GmAliveMsg(), ALIVE_TIMEOUT / 2, groupManager);
-            this.scheduleMessage(new CheckGmAliveMsg(),
-                    ALIVE_TIMEOUT * 2, this.getSelf());
+            sendNetworkMessage(new GmAliveMsg(), groupManager);
+            sendTimeoutMessage(new CheckGmAliveMsg());
         }
     }
 
@@ -445,7 +443,7 @@ public class Participant extends BaseParticipant {
                 .match(ReceivingCrashMsg.class,
                         this::onReceivingMulticastCrashMsg)
                 .match(AliveMsg.class, this::onAliveMsg)
-                .match(CheckGmAliveMsg.class, this::onCheckGmAliveMsg)
+                //.match(CheckGmAliveMsg.class, this::onCheckGmAliveMsg)
                 .match(GmAliveMsg.class, this::onGmAliveMsg)
                 //DEBUG:
                 .match(StepMessage.class,  this::onStepMessage)

@@ -37,8 +37,6 @@ public class GroupManager extends EventsController {
      * are seen as crashed nodes.
      */
     private Set<ActorRef> alivesReceived;
-    protected static final int ALIVE_TIMEOUT =
-            BaseParticipant.MULTICAST_INTERLEAVING;
 
     private void initGroupManager(int id) {
         this.id = id;
@@ -63,6 +61,8 @@ public class GroupManager extends EventsController {
                 this.id,
                 this.view.toString());
         this.canSend = true;
+        // start checking the view
+        //sendTimeoutMessage(new CheckViewMsg());
         this.getSelf().tell(new CheckViewMsg(), this.getSelf());
     }
 
@@ -126,14 +126,14 @@ public class GroupManager extends EventsController {
     }
 
     private void onJoinRequestMsg(JoinRequestMsg request) {
-        /*
-         * // DEBUG:
-         * System.out.printf("%d P-%s P-%s INFO join_request\n",
-         * System.currentTimeMillis(), this.getSelf().path().name(),
-         * this.getSender().path().name());
-         */
+        // DEBUG:
+        System.out.printf("%d P-%s P-%s INFO join_request\n",
+                System.currentTimeMillis(),
+                this.getSelf().path().name(),
+                this.getSender().path().name());
+
         JoinRequestMsg response = new JoinRequestMsg(this.idPool);
-        this.getSender().tell(response, this.getSelf());
+        sendNetworkMessage(response, this.getSender());
 
         // add a new entry to the association map
         this.aliveProcesses
@@ -156,8 +156,8 @@ public class GroupManager extends EventsController {
     private void onViewChange(Set<ActorRef> newMembers) {
         // tell every member in the view to stop
         // generating new multicasts
-        for (ActorRef actorRef : newMembers) {
-            actorRef.tell(new StopMulticastMsg(), this.getSelf());
+        for (ActorRef member : newMembers) {
+            sendNetworkMessage(new StopMulticastMsg(), member);
         }
 
         // Due to FIFO guarantees given by the Akka
@@ -172,8 +172,8 @@ public class GroupManager extends EventsController {
                 this.id,
                 this.tempView.toString());
         ViewChangeMsg viewMsg = new ViewChangeMsg(this.tempView);
-        for (ActorRef actorRef : newMembers) {
-            actorRef.tell(viewMsg, this.getSelf());
+        for (ActorRef member : newMembers) {
+            sendNetworkMessage(viewMsg, member);
         }
     }
 
@@ -186,7 +186,9 @@ public class GroupManager extends EventsController {
         
          // DEBUG:
          System.out.printf("%d P-%d P-%d INFO Checking survivors\n",
-         System.currentTimeMillis(), this.id, this.id);
+                 System.currentTimeMillis(),
+                 this.id,
+                 this.id);
          
         if (alivesReceived.size() > 0) {
             /*
@@ -224,14 +226,12 @@ public class GroupManager extends EventsController {
 
             for (ActorRef participant : participants) {
                 alivesReceived.add(participant);
-                scheduleMessage(new AliveMsg(this.aliveId, this.id),
-                		ALIVE_TIMEOUT / 2,
-                		participant);
+                sendNetworkMessage(new AliveMsg(this.aliveId, this.id),
+                        participant);
             }
             aliveId++;
         }
-        this.scheduleMessage(new CheckViewMsg(),
-                ALIVE_TIMEOUT * 2, this.getSelf());
+        sendTimeoutMessage(new CheckViewMsg());
     }
 
     private void onAliveMsg(AliveMsg msg) {
@@ -239,9 +239,8 @@ public class GroupManager extends EventsController {
         
          //DEBUG:
          System.out.printf("%d P-%d P-%d received_alive_message %s\n",
-         System.currentTimeMillis(), this.id, msg.senderID,
-         msg.toString());
-         
+                 System.currentTimeMillis(), this.id, msg.senderID,
+                 msg.toString());
     }
 
     /**
@@ -254,9 +253,8 @@ public class GroupManager extends EventsController {
      * @param msg
      */
     private void onGmAliveMsg(GmAliveMsg msg) {
-    	scheduleMessage(new GmAliveMsg(), 
-    			GroupManager.ALIVE_TIMEOUT / 2, 
-    			this.getSender());
+        sendNetworkMessage(new GmAliveMsg(),
+                this.getSender());
     }
 
     @Override

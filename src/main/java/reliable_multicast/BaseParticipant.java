@@ -24,7 +24,13 @@ public class BaseParticipant extends AbstractActor {
 
     // --------------------------------------
 
-    public static final int MULTICAST_INTERLEAVING = 10;
+    public static final int MAX_DELAY_TIME = 4;
+    public static final int MULTICAST_INTERLEAVING =
+            MAX_DELAY_TIME / 2;
+    public static final int MAX_TIMEOUT =
+            MAX_DELAY_TIME * 3 + 1;
+
+    
     // not in using as of now...
     //public static final int MAX_DELAY = MULTICAST_INTERLEAVING / 2;
 
@@ -87,14 +93,14 @@ public class BaseParticipant extends AbstractActor {
         if (message == null)
             return;
         this.getContext()
-                .getSystem()
-                .scheduler()
-                .scheduleOnce(Duration.create(after,
-                        TimeUnit.SECONDS),
-                        receiver,
-                        message,
-                        getContext().system().dispatcher(),
-                        this.getSelf());
+        .getSystem()
+        .scheduler()
+        .scheduleOnce(Duration.create(after,
+                TimeUnit.SECONDS),
+                receiver,
+                message,
+                getContext().system().dispatcher(),
+                this.getSelf());
     }
 
     /**
@@ -156,23 +162,46 @@ public class BaseParticipant extends AbstractActor {
      * 
      * @param message
      */
-    protected void sendMessage(Object message, int baseTime, ActorRef receiver) {
-    	if(message.getClass().getName() == "Message")
-    		sendDataMessage(message, baseTime, receiver);
-    	else
-    		sendControlMessage(message, baseTime, receiver);
+
+    protected void sendInternalMessage(Object message, int time) {
+        scheduleMessage(message, time, this.getSelf());
     }
 
-    protected void sendControlMessage(Object message, int baseTime, ActorRef receiver) {
-    	int time = new Random().nextInt(GroupManager.ALIVE_TIMEOUT / 2) + baseTime;
-    	scheduleMessage(message, time, receiver);
+    /**
+     * An abstraction used for internal messages
+     * used to schedule lookup procedures, like
+     * alive checking.
+     * @param message
+     */
+    protected void sendTimeoutMessage(Object message) {
+        sendInternalMessage(message,
+                MAX_TIMEOUT);
+        System.out.println(MAX_TIMEOUT);
     }
 
-    protected void sendDataMessage(Object message, int baseTime, ActorRef receiver) {
-    	int time = new Random().nextInt(MULTICAST_INTERLEAVING / 2) + baseTime;
-    	scheduleMessage(message, time, receiver);
+    /**
+     * Send a message from a node to another node emulating
+     * network delays. The delay is set to be between
+     * T/2 and T, without exceeding T.
+     * 
+     * @param message
+     * @param baseTime
+     * @param receiver
+     */
+    protected void sendNetworkMessage(Object message, ActorRef receiver) {
+        int time = new Random().nextInt(MAX_DELAY_TIME / 2)
+                + MAX_DELAY_TIME / 2;
+        System.out.println(time);
+        scheduleMessage(message, time, receiver);
     }
 
+    /**
+     * Return the set of actors associated to the
+     * flush messages received.
+     * 
+     * @param currentView
+     * @return
+     */
     protected Set<ActorRef> getFlushSenders(int currentView) {
         Set<ActorRef> senders = new HashSet<>();
         Iterator<FlushMsg> flushMsgIterator =
@@ -205,19 +234,19 @@ public class BaseParticipant extends AbstractActor {
     protected void onStopMulticast(StopMulticastMsg stopMsg) {
         this.canSend = false;
         System.out
-                .printf("%d P-%d P-%d INFO stopped_multicasting\n",
-                        System.currentTimeMillis(),
-                        this.id,
-                        this.id);
+        .printf("%d P-%d P-%d INFO stopped_multicasting\n",
+                System.currentTimeMillis(),
+                this.id,
+                this.id);
     }
 
     protected void onViewChangeMsg(ViewChangeMsg viewChange) {
         System.out
-                .printf("%d P-%d P-%d INFO started_view-change V%d\n",
-                        System.currentTimeMillis(),
-                        this.id,
-                        this.id,
-                        viewChange.id);
+        .printf("%d P-%d P-%d INFO started_view-change V%d\n",
+                System.currentTimeMillis(),
+                this.id,
+                this.id,
+                viewChange.id);
         this.tempView = new View(viewChange.id,
                 viewChange.members);
         this.removeOldFlushes(this.tempView.id);
@@ -225,15 +254,14 @@ public class BaseParticipant extends AbstractActor {
         // TODO: should we send all message up to this view?
         for (Message message : messagesUnstable) {
             for (ActorRef member : this.tempView.members) {
-                sendMessage(message, MULTICAST_INTERLEAVING / 2, member);
+                sendNetworkMessage(message, member);
             }
         }
         // FLUSH messages
         for (ActorRef member : this.tempView.members) {
-        	scheduleMessage(new FlushMsg(this.id,
+            sendNetworkMessage(new FlushMsg(this.id,
                     this.tempView.id,
                     this.getSelf()),
-                    MULTICAST_INTERLEAVING / 2,
                     member);
         }
     }
@@ -306,8 +334,8 @@ public class BaseParticipant extends AbstractActor {
          */
         if (this.manualMode)
             return;
-        this.scheduleMessage(new SendMulticastMsg(), MULTICAST_INTERLEAVING / 2, 
-        		this.getSelf());
+        sendInternalMessage(new SendMulticastMsg(),
+                MULTICAST_INTERLEAVING);
     }
 
     private void multicast() {
@@ -326,12 +354,12 @@ public class BaseParticipant extends AbstractActor {
         this.multicastId += 1;
 
         for (ActorRef member : this.view.members) {
-        	scheduleMessage(message, MULTICAST_INTERLEAVING / 2, member);
+            sendNetworkMessage(message, member);
         }
         // STABLE messages
         message = new Message(message, true);
         for (ActorRef member : this.view.members) {
-        	scheduleMessage(message, MULTICAST_INTERLEAVING / 2, member);
+            sendNetworkMessage(message, member);
         }
         this.canSend = true;
     }

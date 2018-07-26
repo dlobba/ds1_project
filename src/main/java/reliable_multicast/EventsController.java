@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 
 import akka.actor.ActorRef;
@@ -76,15 +75,28 @@ public abstract class EventsController extends BaseParticipant {
         this(false);
     }
 
+    /**
+     * This method abstracts events messages
+     * the event controller sends to nodes.
+     * Since these message are artificial no
+     * delay is added to their broadcasting.
+     * 
+     * This method is actually used to replace
+     * a plain "tell" method call.
+     * 
+     * @param message
+     */
+    private void sendEventMessage(Object message, ActorRef receiver) {
+        scheduleMessage(message, 0, receiver);
+    }
+
     protected void onSendStepMsg(SendStepMsg stepMsg) {
         this.onStep();
         this.scheduleStep();
     }
 
     protected void scheduleStep() {
-        int time = MULTICAST_INTERLEAVING * 2;
-        this.scheduleMessage(new SendStepMsg(),
-                time, this.getSelf());
+        sendTimeoutMessage(new SendStepMsg());
     }
 
     /**
@@ -148,7 +160,7 @@ public abstract class EventsController extends BaseParticipant {
         
         //DEBUGGING PURPOSE ONLY
         for(ActorRef member : tempView.members)
-        	member.tell(new StepMessage(tmpStep), this.getSelf());
+        	sendEventMessage(new StepMessage(tmpStep), member);
         
         /*
          * FIRST CHECK: the step should be stable, so the two views must
@@ -367,17 +379,17 @@ public abstract class EventsController extends BaseParticipant {
          * DONE all checks are done. It's safe to blindly send messages.
          */
         for (ActorRef sender : senders) {
-            sender.tell(new SendMulticastMsg(), this.getSelf());
+            sendEventMessage(new SendMulticastMsg(), sender);
         }
         for (Integer triggeringId : triggeringIds) {
             this.triggerEvent(this.events
                     .getProcessNextLabel(triggeringId));
         }
         for (ActorRef risen : risenList) {
-            risen.tell(new ReviveMsg(), this.getSelf());
+            sendEventMessage(new ReviveMsg(), risen);
             this.crashedProcesses
-                    .removeIdRefEntry(this.crashedProcesses
-                            .getIdByActor(risen));
+            .removeIdRefEntry(this.crashedProcesses
+                    .getIdByActor(risen));
         }
         // everything went well (hopefully).
         // So, increase the step
@@ -431,7 +443,7 @@ public abstract class EventsController extends BaseParticipant {
             break;
         }
         for (ActorRef receiver : receivers) {
-            receiver.tell(crashMsg, this.getSelf());
+            sendEventMessage(crashMsg, receiver);
         }
     }
 }
