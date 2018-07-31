@@ -46,7 +46,7 @@ public class Participant extends BaseParticipant {
         super(manualMode);
         this.groupManager = groupManager;
         this.crashed = false;
-        this.isGmAlive = true;
+        this.isGmAlive = false;
         sendNetworkMessage(new JoinRequestMsg(), groupManager);
     }
 
@@ -57,7 +57,7 @@ public class Participant extends BaseParticipant {
     public Participant(String groupManagerPath, boolean manualMode) {
         super(manualMode);
         this.crashed = false;
-        this.isGmAlive = true;
+        this.isGmAlive = false;
         this.groupManager = null;
         
 //        Timeout timeout = new Timeout(MAX_DELAY_TIME, java.util.concurrent.TimeUnit.SECONDS); 
@@ -114,7 +114,7 @@ public class Participant extends BaseParticipant {
             return;
         this.id = joinResponse.idAssigned;
         this.groupManager = this.getSender();
-        //this.isGmAlive = true;
+        this.isGmAlive = true;
         System.out
         .printf("%d P-%d P-%s JOIN-ASSOC\n",
                 System.currentTimeMillis(),
