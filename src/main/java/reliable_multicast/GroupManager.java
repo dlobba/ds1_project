@@ -132,7 +132,7 @@ public class GroupManager extends EventsController {
                 this.getSender().path().name());
 
         JoinRequestMsg response = new JoinRequestMsg(this.idPool);
-        sendNetworkMessage(response, this.getSender());
+        this.getSender().tell(response, this.getSelf());
 
         // add a new entry to the association map
         this.aliveProcesses.addIdRefAssoc(this.idPool,
