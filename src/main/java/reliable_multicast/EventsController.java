@@ -75,21 +75,6 @@ public abstract class EventsController extends BaseParticipant {
         this(false);
     }
 
-    /**
-     * This method abstracts events messages
-     * the event controller sends to nodes.
-     * Since these message are artificial no
-     * delay is added to their broadcasting.
-     * 
-     * This method is actually used to replace
-     * a plain "tell" method call.
-     * 
-     * @param message
-     */
-    private void sendEventMessage(Object message, ActorRef receiver) {
-        scheduleMessage(message, 0, receiver);
-    }
-
     protected void onSendStepMsg(SendStepMsg stepMsg) {
         this.onStep();
         this.scheduleStep();
@@ -157,11 +142,9 @@ public abstract class EventsController extends BaseParticipant {
                 this.id,
                 this.id,
                 tmpStep);
-        
         //DEBUGGING PURPOSE ONLY
         for(ActorRef member : tempView.members)
-        	sendEventMessage(new StepMessage(tmpStep), member);
-        
+            member.tell(new StepMessage(tmpStep), this.getSelf());
         /*
          * FIRST CHECK: the step should be stable, so the two views must
          * be the same. Only in this way we can be confident that
@@ -282,7 +265,6 @@ public abstract class EventsController extends BaseParticipant {
                     tmpStep);
             return;
         }
-
         /*
          * While picking senders, check whether an event can be
          * triggered. If this is the case, store the id for further
@@ -312,14 +294,14 @@ public abstract class EventsController extends BaseParticipant {
                 // wrong.
                 if (tmpSender == null) {
                     System.out
-                            .printf("%d P-%d P-%s ERROR process p%d" +
-                                    " cannot send in step-%d. It's crashed." +
-                                    " Check the conf. file.\n",
-                                    System.currentTimeMillis(),
-                                    this.id,
-                                    this.id,
-                                    senderId,
-                                    tmpStep);
+                    .printf("%d P-%d P-%s ERROR process p%d" +
+                            " cannot send in step-%d. It's crashed." +
+                            " Check the conf. file.\n",
+                            System.currentTimeMillis(),
+                            this.id,
+                            this.id,
+                            senderId,
+                            tmpStep);
                     return;
                 }
                 nextEventLabel = this.events.getProcessNextLabel(
@@ -338,15 +320,15 @@ public abstract class EventsController extends BaseParticipant {
                         senders.add(tmpSender);
                     else {
                         System.out
-                                .printf("%d P-%d P-%s WARNING process p%d" +
-                                        " had two concurrent sending events in step-%d." +
-                                        " The normal multicast has been ignored." +
-                                        " Check the conf. file.\n",
-                                        System.currentTimeMillis(),
-                                        this.id,
-                                        this.id,
-                                        senderId,
-                                        tmpStep);
+                        .printf("%d P-%d P-%s WARNING process p%d" +
+                                " had two concurrent sending events in step-%d." +
+                                " The normal multicast has been ignored." +
+                                " Check the conf. file.\n",
+                                System.currentTimeMillis(),
+                                this.id,
+                                this.id,
+                                senderId,
+                                tmpStep);
                     }
                 }
             }
@@ -361,32 +343,31 @@ public abstract class EventsController extends BaseParticipant {
                         .getActorById(risenId);
                 if (crashedProcess == null) {
                     System.out
-                            .printf("%d P-%d P-%s ERROR process p%d" +
-                                    " cannot revive in step-%d." +
-                                    " It's still alive. Check the conf. file.\n",
-                                    System.currentTimeMillis(),
-                                    this.id,
-                                    this.id,
-                                    risenId,
-                                    tmpStep);
+                    .printf("%d P-%d P-%s ERROR process p%d" +
+                            " cannot revive in step-%d." +
+                            " It's still alive. Check the conf. file.\n",
+                            System.currentTimeMillis(),
+                            this.id,
+                            this.id,
+                            risenId,
+                            tmpStep);
                     return;
                 }
                 risenList.add(crashedProcess);
             }
         }
-
         /*
          * DONE all checks are done. It's safe to blindly send messages.
          */
         for (ActorRef sender : senders) {
-            sendEventMessage(new SendMulticastMsg(), sender);
+            sender.tell(new SendMulticastMsg(), this.getSelf());
         }
         for (Integer triggeringId : triggeringIds) {
             this.triggerEvent(this.events
                     .getProcessNextLabel(triggeringId));
         }
         for (ActorRef risen : risenList) {
-            sendEventMessage(new ReviveMsg(), risen);
+            risen.tell(new ReviveMsg(), this.getSelf());
             this.crashedProcesses
             .removeIdRefEntry(this.crashedProcesses
                     .getIdByActor(risen));
@@ -443,7 +424,7 @@ public abstract class EventsController extends BaseParticipant {
             break;
         }
         for (ActorRef receiver : receivers) {
-            sendEventMessage(crashMsg, receiver);
+            receiver.tell(crashMsg, this.getSelf());
         }
     }
 }
