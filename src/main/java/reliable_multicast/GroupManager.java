@@ -61,7 +61,6 @@ public class GroupManager extends EventsController {
                 this.view.toString());
         this.canSend = true;
         // start checking the view
-        //sendTimeoutMessage(new CheckViewMsg());
         this.getSelf().tell(new CheckViewMsg(), this.getSelf());
     }
 
@@ -232,6 +231,8 @@ public class GroupManager extends EventsController {
             }
             aliveId++;
         }
+        // Wait to receive responses from all
+        // participants
         sendTimeoutMessage(new CheckViewMsg());
     }
 
@@ -254,8 +255,8 @@ public class GroupManager extends EventsController {
      * @param msg
      */
     private void onGmAliveMsg(GmAliveMsg msg) {
-        sendNetworkMessage(new GmAliveMsg(),
-                this.getSender());
+        this.getSender().tell(new GmAliveMsg(),
+                this.getSelf());
     }
 
     @Override
