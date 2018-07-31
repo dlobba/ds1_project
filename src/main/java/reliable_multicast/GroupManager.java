@@ -19,8 +19,7 @@ import reliable_multicast.messages.ViewChangeMsg;
 
 public class GroupManager extends EventsController {
 
-    public static class CheckViewMsg implements Serializable {
-    };
+    public static class CheckViewMsg implements Serializable {};
 
     // id generator used for ID assignment to
     // nodes joining the system
@@ -136,8 +135,8 @@ public class GroupManager extends EventsController {
         sendNetworkMessage(response, this.getSender());
 
         // add a new entry to the association map
-        this.aliveProcesses
-                .addIdRefAssoc(this.idPool, this.getSender());
+        this.aliveProcesses.addIdRefAssoc(this.idPool,
+                this.getSender());
         this.idPool += 1;
 
         // define the new view
@@ -145,6 +144,8 @@ public class GroupManager extends EventsController {
         // the most up to date.
         Set<ActorRef> newView = new HashSet<>(this.tempView.members);
         newView.add(this.getSender());
+        // the method must be issue after the node
+        // has received its new id.
         onViewChange(newView);
     }
 

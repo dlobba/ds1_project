@@ -180,7 +180,6 @@ public class Participant extends BaseParticipant {
         if (this.crashed)
             return;
         super.onReceiveMessage(message);
-
         if (this.receiveMessageAndCrash &&
                 !this.ignoreMessageLabel.equals(message.getLabel())) {
             // remove the flag (so when the node revives
@@ -192,11 +191,10 @@ public class Participant extends BaseParticipant {
     }
 
     private void crash() {
-        System.out
-                .printf("%d P-%d P-%d CRASHED\n",
-                        System.currentTimeMillis(),
-                        this.id,
-                        this.id);
+        System.out.printf("%d P-%d P-%d CRASHED\n",
+                System.currentTimeMillis(),
+                this.id,
+                this.id);
         this.resetParticipant();
         this.crashed = true;
         this.canSend = false;
@@ -296,14 +294,13 @@ public class Participant extends BaseParticipant {
 
         Set<ActorRef> members = this.view.members;
         if (members.size() < 3) {
-            System.out
-                    .printf("%d P-%d P-%s WARNING: too few view" +
-                            " members. Two participants and the" +
-                            " group manager are required." +
-                            " Crash denied. Multicast aborted. \n",
-                            System.currentTimeMillis(),
-                            this.id,
-                            this.id);
+            System.out.printf("%d P-%d P-%s WARNING: too few view" +
+                    " members. Two participants and the" +
+                    " group manager are required." +
+                    " Crash denied. Multicast aborted. \n",
+                    System.currentTimeMillis(),
+                    this.id,
+                    this.id);
             return;
         }
 
@@ -315,7 +312,6 @@ public class Participant extends BaseParticipant {
         boolean found = false;
         while (memberIterator.hasNext() && !found) {
             receiver = memberIterator.next();
-
             if (!(receiver.equals(this.getSelf()) ||
                     receiver.equals(this.groupManager)))
                 found = true;
@@ -326,7 +322,6 @@ public class Participant extends BaseParticipant {
                 false);
         this.multicastId += 1;
         sendNetworkMessage(message, receiver);
-
         // let the sender crash
         this.crash();
     }
@@ -334,39 +329,34 @@ public class Participant extends BaseParticipant {
     protected void onSendMutlicastCrashMsg(MulticastCrashMsg crashMsg) {
         switch (crashMsg.type) {
         case MULTICAST_N_CRASH:
-            System.out
-                    .printf(
-                            "%d P-%d P-%s INFO process will multicast then crash\n",
-                            System.currentTimeMillis(),
-                            this.id,
-                            this.id);
+            System.out.printf(
+                    "%d P-%d P-%s INFO process will multicast then crash\n",
+                    System.currentTimeMillis(),
+                    this.id,
+                    this.id);
             this.multicastAndCrash();
             break;
         case MULTICAST_ONE_N_CRASH:
-            System.out
-                    .printf(
-                            "%d P-%d P-%s INFO process will multicast to one" +
-                                    " participant then crash\n",
-                            System.currentTimeMillis(),
-                            this.id,
-                            this.id);
+            System.out.printf("%d P-%d P-%s INFO process will multicast to one" +
+                    " participant then crash\n",
+                    System.currentTimeMillis(),
+                    this.id,
+                    this.id);
             this.multicastOneAndCrash();
             break;
         }
     }
 
-    protected void onReceivingMulticastCrashMsg(
-            ReceivingCrashMsg crashMsg) {
+    protected void onReceivingMulticastCrashMsg(ReceivingCrashMsg crashMsg) {
         this.ignoreMessageLabel = crashMsg.eventLabel;
         switch (crashMsg.type) {
         case RECEIVE_MULTICAST_N_CRASH:
             this.receiveMessageAndCrash = true;
-            System.out
-                    .printf("%d P-%d P-%s INFO process set to crash on" +
-                            " next message receiving. \n",
-                            System.currentTimeMillis(),
-                            this.id,
-                            this.id);
+            System.out.printf("%d P-%d P-%s INFO process set to crash on" +
+                    " next message receiving. \n",
+                    System.currentTimeMillis(),
+                    this.id,
+                    this.id);
             break;
         case RECEIVE_VIEW_N_CRASH:
             this.receiveViewChangeAndCrash = true;
@@ -385,17 +375,16 @@ public class Participant extends BaseParticipant {
             return;
         
          //DEBUG: 
-         System.out
-         .printf("%d P-%d P-%d INFO Checking Group Manager\n",
-         System.currentTimeMillis(), this.id, this.id);
-         
+         System.out.printf("%d P-%d P-%d INFO Checking Group Manager\n",
+                 System.currentTimeMillis(),
+                 this.id,
+                 this.id);
         if (!isGmAlive) {
-            System.out
-                    .printf("%d P-%d P-%d INFO Group manager Unreachable." +
-                            " Exiting...\n",
-                            System.currentTimeMillis(),
-                            this.id,
-                            this.id);
+            System.out.printf("%d P-%d P-%d INFO Group manager Unreachable." +
+                    " Exiting...\n",
+                    System.currentTimeMillis(),
+                    this.id,
+                    this.id);
             this.getContext().stop(this.getSelf());
             this.getContext().system().terminate();
         } else {
@@ -407,14 +396,13 @@ public class Participant extends BaseParticipant {
 
     private void onGmAliveMsg(GmAliveMsg msg) {
     	 isGmAlive = true;
-    	
     	if (crashed)
             return;
-        
          // DEBUG: 
-         System.out
-         .printf("%d P-%d P-%d received_gm_alive_message\n",
-         System.currentTimeMillis(), this.id, this.id);
+         System.out.printf("%d P-%d P-%d received_gm_alive_message\n",
+                 System.currentTimeMillis(),
+                 this.id,
+                 this.id);
          
     }
     

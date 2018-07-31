@@ -19,8 +19,7 @@ import scala.concurrent.duration.Duration;
 public class BaseParticipant extends AbstractActor {
 
     // --- Messages for internal behavior ---
-    public static class SendMulticastMsg implements Serializable {
-    };
+    public static class SendMulticastMsg implements Serializable {};
 
     // --------------------------------------
 
@@ -176,7 +175,6 @@ public class BaseParticipant extends AbstractActor {
     protected void sendTimeoutMessage(Object message) {
         sendInternalMessage(message,
                 MAX_TIMEOUT);
-        System.out.println(MAX_TIMEOUT);
     }
 
     /**
@@ -191,7 +189,6 @@ public class BaseParticipant extends AbstractActor {
     protected void sendNetworkMessage(Object message, ActorRef receiver) {
         int time = new Random().nextInt(MAX_DELAY_TIME / 2)
                 + MAX_DELAY_TIME / 2;
-        System.out.println(time);
         scheduleMessage(message, time, receiver);
     }
 
@@ -241,8 +238,7 @@ public class BaseParticipant extends AbstractActor {
     }
 
     protected void onViewChangeMsg(ViewChangeMsg viewChange) {
-        System.out
-        .printf("%d P-%d P-%d INFO started_view-change V%d\n",
+        System.out.printf("%d P-%d P-%d INFO started_view-change V%d\n",
                 System.currentTimeMillis(),
                 this.id,
                 this.id,
