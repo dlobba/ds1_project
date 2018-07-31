@@ -135,7 +135,6 @@ public class Participant extends BaseParticipant {
     protected void onViewChangeMsg(ViewChangeMsg viewChange) {
         if (this.crashed)
             return;
-
         if (this.receiveViewChangeAndCrash) {
             this.receiveViewChangeAndCrash = false;
             this.crashAfterViewChange(viewChange);
@@ -151,11 +150,11 @@ public class Participant extends BaseParticipant {
      */
     protected void crashAfterViewChange(ViewChangeMsg viewChange) {
         System.out
-                .printf("%d P-%d P-%d INFO started_view_change V%d\n",
-                        System.currentTimeMillis(),
-                        this.id,
-                        this.id,
-                        viewChange.id);
+        .printf("%d P-%d P-%d INFO started_view_change V%d\n",
+                System.currentTimeMillis(),
+                this.id,
+                this.id,
+                viewChange.id);
         this.flushesReceived.clear();
         this.tempView = new View(viewChange.id,
                 viewChange.members);
@@ -221,8 +220,8 @@ public class Participant extends BaseParticipant {
     private void onAliveMsg(AliveMsg aliveMsg) {
         if (this.crashed)
             return;
-        sendNetworkMessage(new AliveMsg(this.aliveId, this.id), 
-                this.getSender());
+        this.getSender().tell(new AliveMsg(this.aliveId, this.id), 
+                this.getSelf());
     }
 
     /**
@@ -233,8 +232,8 @@ public class Participant extends BaseParticipant {
     private void onReviveMsg(ReviveMsg reviveMsg) {
         this.crashed = false;
         // TODO: remove the node from the crashed node
-        sendNetworkMessage(new JoinRequestMsg(),
-                this.groupManager);
+        this.groupManager.tell(new JoinRequestMsg(),
+                this.getSelf());
     }
 
     // implementing sending and receiving -------
@@ -243,17 +242,14 @@ public class Participant extends BaseParticipant {
     private void multicastAndCrash() {
         if (!this.canSend)
             return;
-
         // this node cannot send message
         // until this one is completed
         this.canSend = false;
-
         Message message = new Message(this.id,
                 this.multicastId,
                 this.tempView.id,
                 false);
         this.multicastId += 1;
-
         for (ActorRef member : this.view.members) {
             sendNetworkMessage(message, member);
         }
@@ -373,7 +369,6 @@ public class Participant extends BaseParticipant {
     private void onCheckGmAliveMsg(CheckGmAliveMsg msg) {
         if (crashed)
             return;
-        
          //DEBUG: 
          System.out.printf("%d P-%d P-%d INFO Checking Group Manager\n",
                  System.currentTimeMillis(),
@@ -389,23 +384,22 @@ public class Participant extends BaseParticipant {
             this.getContext().system().terminate();
         } else {
             isGmAlive = false;
-            sendNetworkMessage(new GmAliveMsg(), groupManager);
+            groupManager.tell(new GmAliveMsg(), this.getSelf());
             sendTimeoutMessage(new CheckGmAliveMsg());
         }
     }
 
     private void onGmAliveMsg(GmAliveMsg msg) {
-    	 isGmAlive = true;
-    	if (crashed)
+        if (crashed)
             return;
+        isGmAlive = true;
          // DEBUG: 
          System.out.printf("%d P-%d P-%d received_gm_alive_message\n",
                  System.currentTimeMillis(),
                  this.id,
                  this.id);
-         
     }
-    
+
     // DEBUG:
     private void onStepMessage(StepMessage msg) {
     	System.out.printf("%d P-%d P-%s INFO step-%d\n",
@@ -431,7 +425,7 @@ public class Participant extends BaseParticipant {
                 .match(ReceivingCrashMsg.class,
                         this::onReceivingMulticastCrashMsg)
                 .match(AliveMsg.class, this::onAliveMsg)
-                //.match(CheckGmAliveMsg.class, this::onCheckGmAliveMsg)
+                .match(CheckGmAliveMsg.class, this::onCheckGmAliveMsg)
                 .match(GmAliveMsg.class, this::onGmAliveMsg)
                 //DEBUG:
                 .match(StepMessage.class,  this::onStepMessage)

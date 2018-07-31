@@ -223,7 +223,6 @@ public class GroupManager extends EventsController {
                     new HashSet<>(this.tempView.members);
             participants.remove(this.getSelf()); // exclude the group
                                                  // manager
-
             for (ActorRef participant : participants) {
                 alivesReceived.add(participant);
                 sendNetworkMessage(new AliveMsg(this.aliveId, this.id),
