@@ -27,7 +27,7 @@ public class BaseParticipant extends AbstractActor {
     public static final int MULTICAST_INTERLEAVING =
             MAX_DELAY_TIME / 2;
     public static final int MAX_TIMEOUT =
-            MAX_DELAY_TIME * 3 + 1;
+            MAX_DELAY_TIME * 2 + 1;
 
     
     // not in using as of now...
@@ -191,6 +191,10 @@ public class BaseParticipant extends AbstractActor {
     }
 
     protected void onViewChangeMsg(ViewChangeMsg viewChange) {
+         // do not install an old view
+        if (viewChange.id < this.tempView.id)
+            return;
+
         System.out.printf("%d P-%d P-%d INFO started_view-change V%d\n",
                 System.currentTimeMillis(),
                 this.id,
