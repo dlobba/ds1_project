@@ -102,66 +102,6 @@ public class BaseParticipant extends AbstractActor {
                 this.getSelf());
     }
 
-    /**
-     *
-     * Send the message simulating a network delay. The delay should be
-     * added to a base time, depending on the type of message we want to
-     * send. Let's make an assumption now (we should ask to the
-     * professor later on if this is fine). Let's suppose that we should
-     * implement delays, but delays shouldn't lead to crash failure. In
-     * order to so, we could put half of the given base time as value
-     * for the delay.
-     * 
-     * If this is not the case, then suppose that we put a limit T / 2,
-     * where T is the base interleaving for a multicast operation. Then
-     * we also have that the interleaving for an heartbeat message is T
-     * / 2 (as we definded it).
-     * 
-     * Since heartbeat messages are subject to delays this means that an
-     * heartbeat message could take T/2 + T / 2 > T / 2. This would lead
-     * to seeing a node as crashed even if it is not. Since the delay
-     * trigger the timeout of the heartbeat message.
-     * 
-     * What do you think? How we should manage delays?
-     * 
-     * Another important thing: ------------------------ As you may have
-     * noticed, I think that it's better to differentiate between
-     * control and data message using two separate method and define a
-     * common base time for the two. I put the two methods here, but you
-     * are free to move them where you want. For example control
-     * messages are issue either by group manager and by the participant
-     * to send heartbeat messages, so in order to avoid duplicated code
-     * this class could be a good fit for them (but you should import
-     * the definition of the heartbeat interleaving here for
-     * correctness).
-     * 
-     * Once you have done this, replace occurrences of old sending
-     * messages using the new abstraction methods (sendData or
-     * sendControl message, respectively). Be careful to think about
-     * each scenario where these methods should be used as opposed to
-     * the normal method. Potentially every .tell method could be
-     * replaced with this, but I think that we should use:
-     * 
-     * * tell methods: for internal event scheduling and for control
-     * messages sent by the EventsController (we should say this during
-     * the presentation)
-     * 
-     * * sendXMessage: for every message (data or
-     * control message) that is sent by an actor to another one on a
-     * different location.
-     * 
-     * A final note. To implement delays, remember not to use
-     * Thread.sleep for the reason I told you before. Use instead
-     * a non blocking approach. Bare in mind that you are
-     * on the bello_che_pronto branch, so you should find a method
-     * that should fit this already done ;)
-     * 
-     * PS: once you have completed the work, keep only serious
-     * parts of this comment.
-     * 
-     * @param message
-     */
-
     protected void sendInternalMessage(Object message, int time) {
         scheduleMessage(message, time, this.getSelf());
     }
@@ -190,6 +130,19 @@ public class BaseParticipant extends AbstractActor {
         int time = new Random().nextInt(MAX_DELAY_TIME / 2)
                 + MAX_DELAY_TIME / 2;
         scheduleMessage(message, time, receiver);
+    }
+
+    /**
+     * Send a network message after a fixed amount of time.
+     *
+     * @param message
+     * @param after
+     * @param receiver
+     */
+    protected void sendNetworkMessageAfter(Object message, int after, ActorRef receiver) {
+        int time = new Random().nextInt(MAX_DELAY_TIME / 2)
+                + MAX_DELAY_TIME / 2;
+        scheduleMessage(message, after + time, receiver);
     }
 
     /**
@@ -253,11 +206,14 @@ public class BaseParticipant extends AbstractActor {
                 sendNetworkMessage(message, member);
             }
         }
-        // FLUSH messages
+        // FLUSH messages: send them after having sent
+        // all ViewChange messages. This is guaranteed
+        // by sending after MAX_DELAY_TIME
         for (ActorRef member : this.tempView.members) {
-            sendNetworkMessage(new FlushMsg(this.id,
+            sendNetworkMessageAfter(new FlushMsg(this.id,
                     this.tempView.id,
                     this.getSelf()),
+                    MAX_DELAY_TIME + 1,
                     member);
         }
     }
@@ -355,7 +311,9 @@ public class BaseParticipant extends AbstractActor {
         // STABLE messages
         message = new Message(message, true);
         for (ActorRef member : this.view.members) {
-            sendNetworkMessage(message, member);
+            sendNetworkMessageAfter(message,
+                    MAX_DELAY_TIME + 1,
+                    member);
         }
         this.canSend = true;
     }
