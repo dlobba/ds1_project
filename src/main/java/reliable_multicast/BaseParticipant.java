@@ -46,7 +46,7 @@ public class BaseParticipant extends AbstractActor {
     protected Set<FlushMsg> flushesReceived;
     protected Set<Message> messagesUnstable;
 
-    // store the status of the all participants
+    // store the status of all participants
     // from the point of view of this actor
     protected final Map<Integer, Integer> processLastCall;
 
@@ -215,7 +215,8 @@ public class BaseParticipant extends AbstractActor {
                 this.id,
                 viewChange.id);
         this.tempView = new View(viewChange.id,
-                viewChange.members);
+                viewChange.members,
+                viewChange.membersIds);
         this.removeOldFlushes(this.tempView.id);
 
         // TODO: should we send all message up to this view?
@@ -258,6 +259,10 @@ public class BaseParticipant extends AbstractActor {
             // TODO: deliver all mesages up to current view
             this.deliverAllMessages();
             this.view = new View(tempView);
+            System.out.printf("%d install view %d %s\n",
+                    this.id,
+                    this.view.id,
+                    this.view.logMembers());
             System.out.printf("%d P-%d P-%d installed_view %s\n",
                     System.currentTimeMillis(),
                     this.id,
@@ -315,7 +320,10 @@ public class BaseParticipant extends AbstractActor {
                 this.tempView.id,
                 false);
         this.multicastId += 1;
-
+        System.out.printf("%d send multicast %d within %d",
+                this.id,
+                this.multicastId,
+                this.view.id);
         for (ActorRef member : this.view.members) {
             sendNetworkMessage(message, member);
         }
@@ -336,7 +344,13 @@ public class BaseParticipant extends AbstractActor {
          */
         if (!this.tempView.members.contains(this.getSender()))
             return;
-
+        // TODO: rewrite completely this part. It's wrong.
+        System.out.printf("%d deliver multicast %d from %d within %d\n",
+                System.currentTimeMillis(),
+                this.id,
+                message.messageID,
+                message.senderID,
+                message.viewId);
         if (!message.stable) {
             System.out.printf("%d P-%d P-%d received_message %s\n",
                     System.currentTimeMillis(),
