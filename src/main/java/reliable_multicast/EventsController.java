@@ -50,10 +50,13 @@ public abstract class EventsController extends BaseParticipant {
             Map<Integer, Set<String>> risenOrder,
             Map<Integer, Set<String>> views) {
         this(manualMode);
-        this.events.fromMap(events);
         this.sendOrder.fromMap(sendOrder);
         this.risenOrder.fromMap(risenOrder);
         this.views.fromMap(views);
+        Set<Integer> processes = this.events.fromMap(events);
+        for (Integer process : processes) {
+            this.processLastCall.put(process, -1);
+        }
     }
 
     public EventsController(boolean manualMode) {
@@ -91,9 +94,6 @@ public abstract class EventsController extends BaseParticipant {
     @Override
     protected void onReceiveMessage(Message message) {
         super.onReceiveMessage(message);
-        this.events.updateProcessLastCall(message.senderID,
-                message.messageID);
-
         /*
          * This will allow the group manager to manage events in the
          * case one doesn't want to use the config file.
@@ -304,7 +304,7 @@ public abstract class EventsController extends BaseParticipant {
                             tmpStep);
                     return;
                 }
-                nextEventLabel = this.events.getProcessNextLabel(
+                nextEventLabel = this.getProcessNextLabel(
                         senderId);
                 // if the process has an event associated, then
                 // the retrieved string cannot be null.
@@ -363,7 +363,7 @@ public abstract class EventsController extends BaseParticipant {
             sender.tell(new SendMulticastMsg(), this.getSelf());
         }
         for (Integer triggeringId : triggeringIds) {
-            this.triggerEvent(this.events
+            this.triggerEvent(this
                     .getProcessNextLabel(triggeringId));
         }
         for (ActorRef risen : risenList) {
@@ -426,5 +426,22 @@ public abstract class EventsController extends BaseParticipant {
         for (ActorRef receiver : receivers) {
             receiver.tell(crashMsg, this.getSelf());
         }
+    }
+
+    public String getProcessLabel(Integer processId) {
+        Integer messageId = this.processLastCall.get(processId);
+        if (messageId == null)
+            return null;
+        return "p" + processId.toString() +
+                "m" + messageId.toString();
+    }
+
+    public String getProcessNextLabel(Integer processId) {
+        Integer messageId = this.processLastCall.get(processId);
+        if (messageId == null)
+            return null;
+        messageId += 1;
+        return "p" + processId.toString() +
+                "m" + messageId.toString();
     }
 }

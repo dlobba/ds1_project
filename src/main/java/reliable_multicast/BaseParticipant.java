@@ -1,8 +1,10 @@
 package reliable_multicast;
 
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -44,6 +46,10 @@ public class BaseParticipant extends AbstractActor {
     protected Set<FlushMsg> flushesReceived;
     protected Set<Message> messagesUnstable;
 
+    // store the status of the all participants
+    // from the point of view of this actor
+    protected final Map<Integer, Integer> processLastCall;
+
     // this was used to debug alives messages
     protected int aliveId;
     protected boolean manualMode;
@@ -65,6 +71,7 @@ public class BaseParticipant extends AbstractActor {
         super();
         this.resetParticipant();
         this.manualMode = manualMode;
+        this.processLastCall = new HashMap<>();
     }
 
     public BaseParticipant(Config config) {
@@ -76,6 +83,13 @@ public class BaseParticipant extends AbstractActor {
     }
 
     // ------------------------------------------
+
+    private void updateProcessLastCall(Integer processId,
+            Integer messageID) {
+        if (processId == -1)
+            return;
+        this.processLastCall.put(processId, messageID);
+    }
 
     private void removeOldFlushes(int currentView) {
         Iterator<FlushMsg> msgIterator =
@@ -274,14 +288,7 @@ public class BaseParticipant extends AbstractActor {
     }
 
     /**
-     * Schedule a new multicast. Be careful that here the behavior will
-     * differ between EventsController and normal Participants.
-     *
-     * In the case of a participant, the scheduling should be ignored if
-     * in manual mode.
-     *
-     * While in the case of the EventController the scheduling
-     * represents a step of batch multicasts.
+     * Schedule a new multicast.
      */
     protected void scheduleMulticast() {
         /*
@@ -347,6 +354,10 @@ public class BaseParticipant extends AbstractActor {
             // in the current view?
             this.deliverMessage(message);
         }
+        // update the status of the system within the pov
+        // of this actor
+        this.updateProcessLastCall(message.senderID,
+                message.messageID);
     }
 
     @Override

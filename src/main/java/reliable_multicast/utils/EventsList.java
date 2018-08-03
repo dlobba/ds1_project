@@ -13,39 +13,10 @@ import reliable_multicast.EventsController.Event;
 public class EventsList {
 
     private final Map<String, Map<Event, Set<Integer>>> events;
-    private final Map<Integer, Integer> processLastCall;
 
     public EventsList() {
         super();
         this.events = new HashMap<>();
-        this.processLastCall = new HashMap<>();
-    }
-
-    public String getProcessLabel(Integer processId) {
-        Integer messageId = this.processLastCall.get(processId);
-        if (messageId == null)
-            return null;
-        return "p" + processId.toString() +
-                "m" + messageId.toString();
-    }
-
-    public String getProcessNextLabel(Integer processId) {
-        Integer messageId = this.processLastCall.get(processId);
-        if (messageId == null)
-            return null;
-        messageId += 1;
-        return "p" + processId.toString() +
-                "m" + messageId.toString();
-    }
-
-    public void updateProcessLastCall(Integer processId,
-            Integer messageID) {
-        Integer oldEntry = this.processLastCall.get(processId);
-        if (oldEntry == null)
-            return;
-        if (oldEntry >= messageID)
-            return;
-        this.processLastCall.put(processId, messageID);
     }
 
     /**
@@ -101,13 +72,18 @@ public class EventsList {
         return eventList.get(event);
     }
 
-    public void fromMap(Map<String, Map<Event, Set<String>>> events) {
+    /**
+     * Parse event strings and return the list of
+     * processes involved.
+     * @param events
+     */
+    public Set<Integer> fromMap(Map<String, Map<Event, Set<String>>> events) {
         if (events == null)
-            return;
+            return new HashSet<>();
+        Set<Integer> processes = new HashSet<>();
 
         String tmpLabel;
         Pattern labelPattern = Pattern.compile("^p([0-9]+)m([0-9]+)$");
-
         Iterator<String> labelIterator =
                 events.keySet().iterator();
         Map<Event, Set<Integer>> tmpEventProcessMap;
@@ -120,14 +96,13 @@ public class EventsList {
                 if (tmpEventProcessMap != null)
                     this.events.put(tmpLabel, tmpEventProcessMap);
                 /*
-                 * Add the process to the map. We need to track this
-                 * process.
+                 * Add the process to the map.
+                 * We need to track this process.
                  */
-                this.processLastCall
-                        .put(Integer.parseInt(labelMatcher.group(1)),
-                                -1);
+                processes.add(Integer.parseInt(labelMatcher.group(1)));
             }
         }
+        return processes;
     }
 
     public Map<Event, Set<Integer>> eventProcessFromMap(
