@@ -157,7 +157,8 @@ public class Participant extends BaseParticipant {
                 viewChange.id);
         this.flushesReceived.clear();
         this.tempView = new View(viewChange.id,
-                viewChange.members);
+                viewChange.members,
+                viewChange.membersIds);
         for (Message message : messagesUnstable) {
             for (ActorRef member : this.tempView.members) {
                 sendNetworkMessage(message, member);

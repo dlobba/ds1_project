@@ -48,7 +48,7 @@ public class GroupManager extends EventsController {
         // element of the view
         HashSet<ActorRef> initialView = new HashSet<ActorRef>();
         initialView.add(this.getSelf());
-        this.view = new View(0, initialView);
+        this.view = new View(0, initialView, new HashSet<>(this.id));
         this.tempView = new View(view);
         System.out.printf("%d P-%d P-%d INFO Group_manager_initiated\n",
                 System.currentTimeMillis(),
@@ -164,8 +164,16 @@ public class GroupManager extends EventsController {
         // framework, we are (we should) be safe not
         // send the view change before acknowledging
         // everyone has stopped sending multicasts.
+        Set<Integer> membersIds = new HashSet<>();
+        Integer tmp;
+        for (ActorRef member : newMembers) {
+            tmp = this.aliveProcesses.getIdByActor(member);
+            if (tmp != null)
+                membersIds.add(tmp);
+        }
         this.tempView = new View(this.tempView.id + 1,
-                newMembers);
+                newMembers,
+                membersIds);
         System.out.printf("%d P-%d P-%d INFO change-view: %s\n",
                 System.currentTimeMillis(),
                 this.id,
