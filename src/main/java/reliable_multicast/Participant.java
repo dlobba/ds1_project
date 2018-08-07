@@ -47,7 +47,7 @@ public class Participant extends BaseParticipant {
         this.groupManager = groupManager;
         this.crashed = false;
         this.isGmAlive = false;
-        sendNetworkMessage(new JoinRequestMsg(), groupManager);
+        groupManager.tell(new JoinRequestMsg(), this.getSelf());
     }
 
     public Participant(ActorRef groupManager) {
@@ -149,20 +149,24 @@ public class Participant extends BaseParticipant {
      * @param viewChange
      */
     protected void crashAfterViewChange(ViewChangeMsg viewChange) {
-        System.out
-        .printf("%d P-%d P-%d INFO started_view_change V%d\n",
+     // do not install an old view
+        if (viewChange.id < this.tempView.id)
+            return;
+        System.out.printf("%d P-%d P-%d INFO started_view_change V%d\n",
                 System.currentTimeMillis(),
                 this.id,
                 this.id,
                 viewChange.id);
-        this.flushesReceived.clear();
         this.tempView = new View(viewChange.id,
                 viewChange.members,
                 viewChange.membersIds);
+        this.removeOldFlushes(this.tempView.id);
+        // TODO: should we send all message up to this view?
+        int waitTime = 0;
         for (Message message : messagesBuffer) {
-            for (ActorRef member : this.tempView.members) {
-                sendNetworkMessage(message, member);
-            }
+            // mark the message as stable
+            message = new Message(message, true);
+            waitTime = this.delayedMulticast(message, this.tempView.members);
         }
         this.crash();
         // FLUSHES are not sent
@@ -246,18 +250,23 @@ public class Participant extends BaseParticipant {
         // this node cannot send message
         // until this one is completed
         this.canSend = false;
+        Message message = new Message(
+                this.id,
+                this.multicastId,
+                this.view.id,
+                false);
         System.out.printf("%d send multicast %d within %d\n",
                 this.id,
                 this.multicastId,
                 this.view.id);
-        Message message = new Message(this.id,
-                this.multicastId,
-                this.view.id,
-                false);
+        System.out.printf("%d P-%d P-%d multicast_message %s\n",
+                System.currentTimeMillis(),
+                this.id,
+                this.id,
+                message.toString());
         this.multicastId += 1;
-        for (ActorRef member : this.view.members) {
-            sendNetworkMessage(message, member);
-        }
+        int waitTime;
+        waitTime = this.delayedMulticast(message, this.view.members);
         // Do not send stable messages.
         // Crash instead
         this.crash();
@@ -322,7 +331,7 @@ public class Participant extends BaseParticipant {
                 this.tempView.id,
                 false);
         this.multicastId += 1;
-        sendNetworkMessage(message, receiver);
+        sendMessageAfter(message, 1, receiver);
         // let the sender crash
         this.crash();
     }

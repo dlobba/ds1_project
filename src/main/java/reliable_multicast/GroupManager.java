@@ -156,9 +156,8 @@ public class GroupManager extends EventsController {
     private void onViewChange(Set<ActorRef> newMembers) {
         // tell every member in the view to stop
         // generating new multicasts
-        for (ActorRef member : newMembers) {
-            sendNetworkMessage(new StopMulticastMsg(), member);
-        }
+        int waitTime;
+        waitTime = this.delayedMulticast(new StopMulticastMsg(), newMembers);
 
         // Due to FIFO guarantees given by the Akka
         // framework, we are (we should) be safe not
@@ -174,15 +173,13 @@ public class GroupManager extends EventsController {
         this.tempView = new View(this.tempView.id + 1,
                 newMembers,
                 membersIds);
-        System.out.printf("%d P-%d P-%d INFO change-view: %s\n",
+        System.out.printf("%d P-%d P-%d INFO view_changed: %s\n",
                 System.currentTimeMillis(),
                 this.id,
                 this.id,
                 this.tempView.toString());
         ViewChangeMsg viewMsg = new ViewChangeMsg(this.tempView);
-        for (ActorRef member : newMembers) {
-            sendNetworkMessage(viewMsg, member);
-        }
+        this.delayedMulticast(viewMsg, newMembers, waitTime + 1);
     }
 
     /*
@@ -231,11 +228,11 @@ public class GroupManager extends EventsController {
                     new HashSet<>(this.tempView.members);
             participants.remove(this.getSelf()); // exclude the group
                                                  // manager
+            AliveMsg aliveMsg = new AliveMsg(this.aliveId, this.id);
             for (ActorRef participant : participants) {
                 alivesReceived.add(participant);
-                sendNetworkMessage(new AliveMsg(this.aliveId, this.id),
-                        participant);
             }
+            this.delayedMulticast(aliveMsg, participants);
             aliveId++;
         }
         // Wait to receive responses from all

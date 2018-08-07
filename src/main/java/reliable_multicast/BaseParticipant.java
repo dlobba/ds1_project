@@ -5,7 +5,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -92,7 +91,7 @@ public class BaseParticipant extends AbstractActor {
         this.processesDelivered.put(processId, messageID);
     }
 
-    private void removeOldFlushes(int currentView) {
+    protected void removeOldFlushes(int currentView) {
         Iterator<FlushMsg> msgIterator =
                 this.flushesReceived.iterator();
         FlushMsg flushMsg;
@@ -133,31 +132,40 @@ public class BaseParticipant extends AbstractActor {
     }
 
     /**
-     * Send a message from a node to another node emulating
-     * network delays. The delay is set to be between
-     * T/2 and T, without exceeding T.
-     * 
-     * @param message
-     * @param baseTime
-     * @param receiver
-     */
-    protected void sendNetworkMessage(Object message, ActorRef receiver) {
-        int time = new Random().nextInt(MAX_DELAY_TIME / 2)
-                + MAX_DELAY_TIME / 2;
-        scheduleMessage(message, time, receiver);
-    }
-
-    /**
-     * Send a network message after a fixed amount of time.
+     * Send a message after a fixed amount of time.
      *
      * @param message
      * @param after
      * @param receiver
      */
-    protected void sendNetworkMessageAfter(Object message, int after, ActorRef receiver) {
-        int time = new Random().nextInt(MAX_DELAY_TIME / 2)
-                + MAX_DELAY_TIME / 2;
-        scheduleMessage(message, after + time, receiver);
+    protected void sendMessageAfter(Object message, int after, ActorRef receiver) {
+        scheduleMessage(message, after, receiver);
+    }
+
+    /**
+     * Send a multicast simulating delays.
+     * Each message is sent with 1 second interleaving
+     * between each other.
+     * 
+     * @param message
+     * @param baseTime time after messages start to be sent
+     * @return the estimated time after all messages will be
+     * sent.
+     */
+    protected int delayedMulticast(Object message,
+            Set<ActorRef> receivers,
+            int baseTime) {
+        int time = 0;
+        for (ActorRef receiver : receivers) {
+            sendMessageAfter(message, baseTime + time, receiver);
+            time += 1;
+        }
+        return time;
+    }
+
+    protected int delayedMulticast(Object message,
+            Set<ActorRef> receivers) {
+        return this.delayedMulticast(message, receivers, 0);
     }
 
     /**
@@ -217,7 +225,7 @@ public class BaseParticipant extends AbstractActor {
     }
 
     protected void onViewChangeMsg(ViewChangeMsg viewChange) {
-         // do not install an old view
+        // do not install an old view
         if (viewChange.id < this.tempView.id)
             return;
 
@@ -232,23 +240,20 @@ public class BaseParticipant extends AbstractActor {
         this.removeOldFlushes(this.tempView.id);
 
         // TODO: should we send all message up to this view?
+        int waitTime = 0;
         for (Message message : messagesBuffer) {
             // mark the message as stable
             message = new Message(message, true);
-            for (ActorRef member : this.tempView.members) {
-                sendNetworkMessage(message, member);
-            }
+            waitTime = this.delayedMulticast(message, this.tempView.members);
         }
         // FLUSH messages: send them after having sent
         // all ViewChange messages. This is guaranteed
-        // by sending after MAX_DELAY_TIME
-        for (ActorRef member : this.tempView.members) {
-            sendNetworkMessageAfter(new FlushMsg(this.id,
+        // by sending after waitTime (+1 to be sure)
+        this.delayedMulticast(new FlushMsg(this.id,
                     this.tempView.id,
                     this.getSelf()),
-                    MAX_DELAY_TIME + 1,
-                    member);
-        }
+                this.tempView.members,
+                waitTime + 1);
     }
 
     protected void onFlushMsg(FlushMsg flushMsg) {
@@ -340,16 +345,11 @@ public class BaseParticipant extends AbstractActor {
                 this.id,
                 message.toString());
         this.multicastId += 1;
-        for (ActorRef member : this.view.members) {
-            sendNetworkMessage(message, member);
-        }
+        int waitTime;
+        waitTime = this.delayedMulticast(message, this.view.members);
         // STABLE messages
         message = new Message(message, true);
-        for (ActorRef member : this.view.members) {
-            sendNetworkMessageAfter(message,
-                    MAX_DELAY_TIME + 1,
-                    member);
-        }
+        this.delayedMulticast(message, this.view.members, waitTime);
         this.canSend = true;
     }
 
