@@ -10,19 +10,22 @@ import akka.actor.ActorRef;
 public class View {
     int id;
     Set<ActorRef> members;
+    Set<Integer> membersIds;
 
-    public View(int id, Set<ActorRef> members) {
+    public View(int id, Set<ActorRef> members, Set<Integer> membersIds) {
         this.id = id;
         this.members = new HashSet<>(members);
+        this.membersIds = new HashSet<>(membersIds);
     }
 
     public View(int id) {
-        this(id, new HashSet<>());
+        this(id, new HashSet<>(), new HashSet<>());
     }
 
     public View(View other) {
         this.id = other.id;
         this.members = new HashSet<>(other.members);
+        this.membersIds = new HashSet<>(other.membersIds);
     }
 
     public int getId() {
@@ -31,6 +34,10 @@ public class View {
 
     public Set<ActorRef> getMembers() {
         return new HashSet<>(members);
+    }
+
+    public Set<Integer> getMembersIds() {
+        return new HashSet<>(membersIds);
     }
 
     @Override
@@ -52,6 +59,20 @@ public class View {
                 return false;
         }
         return true;
+    }
+
+    /**
+     * Return a comma separated list of IDs related
+     * to participants in the current view.
+     *
+     * @return
+     */
+    public String logMembers() {
+        List<String> membersString = new ArrayList<>();
+        for (Integer member : membersIds) {
+            membersString.add(member.toString());
+        }
+        return String.join(",", membersString);
     }
 
     @Override

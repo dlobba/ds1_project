@@ -1,9 +1,10 @@
 package reliable_multicast;
 
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Random;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -38,11 +39,16 @@ public class BaseParticipant extends AbstractActor {
     // the set of actors that are seen by this node
     protected View view;
     // temporary view established in the all-to-all
-    // phase
+    // phase. The temporary view is equal to the current view
+    // only when the view is effectively installed.
     protected View tempView;
     protected boolean canSend;
     protected Set<FlushMsg> flushesReceived;
-    protected Set<Message> messagesUnstable;
+    protected Set<Message> messagesBuffer;
+
+    // store the status of all participants
+    // from the point of view of this actor
+    protected final Map<Integer, Integer> processesDelivered;
 
     // this was used to debug alives messages
     protected int aliveId;
@@ -55,7 +61,7 @@ public class BaseParticipant extends AbstractActor {
         this.canSend = false;
         this.view = new View(-1);
         this.tempView = new View(-1);
-        this.messagesUnstable = new HashSet<>();
+        this.messagesBuffer = new HashSet<>();
         this.flushesReceived = new HashSet<>();
     }
 
@@ -65,6 +71,7 @@ public class BaseParticipant extends AbstractActor {
         super();
         this.resetParticipant();
         this.manualMode = manualMode;
+        this.processesDelivered = new HashMap<>();
     }
 
     public BaseParticipant(Config config) {
@@ -77,7 +84,14 @@ public class BaseParticipant extends AbstractActor {
 
     // ------------------------------------------
 
-    private void removeOldFlushes(int currentView) {
+    private void updateProcessesDelivered(Integer processId,
+            Integer messageID) {
+        if (processId == -1)
+            return;
+        this.processesDelivered.put(processId, messageID);
+    }
+
+    protected void removeOldFlushes(int currentView) {
         Iterator<FlushMsg> msgIterator =
                 this.flushesReceived.iterator();
         FlushMsg flushMsg;
@@ -118,31 +132,40 @@ public class BaseParticipant extends AbstractActor {
     }
 
     /**
-     * Send a message from a node to another node emulating
-     * network delays. The delay is set to be between
-     * T/2 and T, without exceeding T.
-     * 
-     * @param message
-     * @param baseTime
-     * @param receiver
-     */
-    protected void sendNetworkMessage(Object message, ActorRef receiver) {
-        int time = new Random().nextInt(MAX_DELAY_TIME / 2)
-                + MAX_DELAY_TIME / 2;
-        scheduleMessage(message, time, receiver);
-    }
-
-    /**
-     * Send a network message after a fixed amount of time.
+     * Send a message after a fixed amount of time.
      *
      * @param message
      * @param after
      * @param receiver
      */
-    protected void sendNetworkMessageAfter(Object message, int after, ActorRef receiver) {
-        int time = new Random().nextInt(MAX_DELAY_TIME / 2)
-                + MAX_DELAY_TIME / 2;
-        scheduleMessage(message, after + time, receiver);
+    protected void sendMessageAfter(Object message, int after, ActorRef receiver) {
+        scheduleMessage(message, after, receiver);
+    }
+
+    /**
+     * Send a multicast simulating delays.
+     * Each message is sent with 1 second interleaving
+     * between each other.
+     * 
+     * @param message
+     * @param baseTime time after messages start to be sent
+     * @return the estimated time after all messages will be
+     * sent.
+     */
+    protected int delayedMulticast(Object message,
+            Set<ActorRef> receivers,
+            int baseTime) {
+        int time = 0;
+        for (ActorRef receiver : receivers) {
+            sendMessageAfter(message, baseTime + time, receiver);
+            time += 1;
+        }
+        return time;
+    }
+
+    protected int delayedMulticast(Object message,
+            Set<ActorRef> receivers) {
+        return this.delayedMulticast(message, receivers, 0);
     }
 
     /**
@@ -163,6 +186,17 @@ public class BaseParticipant extends AbstractActor {
                 senders.add(flushMsg.sender);
         }
         return senders;
+    }
+    
+    protected Message getMessage(Message other) {
+        Iterator<Message> msgIter = this.messagesBuffer.iterator();
+        Message tmp;
+        while (msgIter.hasNext()) {
+            tmp = msgIter.next();
+            if (tmp.equals(other))
+                return tmp;
+        }
+        return null;
     }
 
     public int getId() {
@@ -191,35 +225,35 @@ public class BaseParticipant extends AbstractActor {
     }
 
     protected void onViewChangeMsg(ViewChangeMsg viewChange) {
-         // do not install an old view
+        // do not install an old view
         if (viewChange.id < this.tempView.id)
             return;
 
-        System.out.printf("%d P-%d P-%d INFO started_view-change V%d\n",
+        System.out.printf("%d P-%d P-%d INFO started_view_change V%d\n",
                 System.currentTimeMillis(),
                 this.id,
                 this.id,
                 viewChange.id);
         this.tempView = new View(viewChange.id,
-                viewChange.members);
+                viewChange.members,
+                viewChange.membersIds);
         this.removeOldFlushes(this.tempView.id);
 
         // TODO: should we send all message up to this view?
-        for (Message message : messagesUnstable) {
-            for (ActorRef member : this.tempView.members) {
-                sendNetworkMessage(message, member);
-            }
+        int waitTime = 0;
+        for (Message message : messagesBuffer) {
+            // mark the message as stable
+            message = new Message(message, true);
+            waitTime = this.delayedMulticast(message, this.tempView.members);
         }
         // FLUSH messages: send them after having sent
         // all ViewChange messages. This is guaranteed
-        // by sending after MAX_DELAY_TIME
-        for (ActorRef member : this.tempView.members) {
-            sendNetworkMessageAfter(new FlushMsg(this.id,
+        // by sending after waitTime (+1 to be sure)
+        this.delayedMulticast(new FlushMsg(this.id,
                     this.tempView.id,
                     this.getSelf()),
-                    MAX_DELAY_TIME + 1,
-                    member);
-        }
+                this.tempView.members,
+                waitTime + 1);
     }
 
     protected void onFlushMsg(FlushMsg flushMsg) {
@@ -241,9 +275,11 @@ public class BaseParticipant extends AbstractActor {
         if (this.tempView.id == flushMsg.viewID &&
                 this.getFlushSenders(this.tempView.id)
                         .containsAll(this.tempView.members)) {
-            // TODO: deliver all mesages up to current view
-            this.deliverAllMessages();
             this.view = new View(tempView);
+            System.out.printf("%d install view %d %s\n",
+                    this.id,
+                    this.view.id,
+                    this.view.logMembers());
             System.out.printf("%d P-%d P-%d installed_view %s\n",
                     System.currentTimeMillis(),
                     this.id,
@@ -253,19 +289,20 @@ public class BaseParticipant extends AbstractActor {
                     System.currentTimeMillis(),
                     this.id,
                     this.id);
-
+            // deliver all mesages up to current view
+            Iterator<Message> msgIter = messagesBuffer.iterator();
+            Message message;
+            while (msgIter.hasNext()) {
+                message = msgIter.next();
+                if (message.viewId <= this.view.id) {
+                    deliverMessage(message);
+                    msgIter.remove();
+                }
+            }
             // resume multicasting
             this.canSend = true;
             this.scheduleMulticast();
         }
-    }
-
-    private void deliverAllMessages() {
-        this.messagesUnstable.clear();
-    }
-
-    private void deliverMessage(Message message) {
-        this.messagesUnstable.remove(message);
     }
 
     protected void onSendMulticastMsg(SendMulticastMsg message) {
@@ -274,14 +311,7 @@ public class BaseParticipant extends AbstractActor {
     }
 
     /**
-     * Schedule a new multicast. Be careful that here the behavior will
-     * differ between EventsController and normal Participants.
-     *
-     * In the case of a participant, the scheduling should be ignored if
-     * in manual mode.
-     *
-     * While in the case of the EventController the scheduling
-     * represents a step of batch multicasts.
+     * Schedule a new multicast.
      */
     protected void scheduleMulticast() {
         /*
@@ -297,28 +327,29 @@ public class BaseParticipant extends AbstractActor {
     private void multicast() {
         if (!this.canSend)
             return;
-
         // this node cannot send message
         // until this one is completed
         this.canSend = false;
-
         Message message = new Message(
                 this.id,
                 this.multicastId,
-                this.tempView.id,
+                this.view.id,
                 false);
+        System.out.printf("%d send multicast %d within %d\n",
+                this.id,
+                this.multicastId,
+                this.view.id);
+        System.out.printf("%d P-%d P-%d multicast_message %s\n",
+                System.currentTimeMillis(),
+                this.id,
+                this.id,
+                message.toString());
         this.multicastId += 1;
-
-        for (ActorRef member : this.view.members) {
-            sendNetworkMessage(message, member);
-        }
+        int waitTime;
+        waitTime = this.delayedMulticast(message, this.view.members);
         // STABLE messages
         message = new Message(message, true);
-        for (ActorRef member : this.view.members) {
-            sendNetworkMessageAfter(message,
-                    MAX_DELAY_TIME + 1,
-                    member);
-        }
+        this.delayedMulticast(message, this.view.members, waitTime);
         this.canSend = true;
     }
 
@@ -329,23 +360,64 @@ public class BaseParticipant extends AbstractActor {
          */
         if (!this.tempView.members.contains(this.getSender()))
             return;
+        // if the view is greater than the current one then
+        // store the message, without deliver it.
+        // once the message received is also stable
+        // stop adding messages of this kind to the buffer
+        if (message.viewId > this.view.id) {
+//            if (message.stable)
+//                this.messagesBuffer.add(message);
+//            else {
+//                Message tmp = this.getMessage(message);
+//                if (tmp != null && tmp.stable)
+//                    return;
+//                this.messagesBuffer.add(message);
+//            }
+            return;
+        }
+        // a message is crossing the view boundary.
+        // ignore it
+        if (message.viewId < this.view.id)
+            return;
+        /* message view is the same as current view
+         * or a preceding view.
+         * Check if the id of the new message is greater
+         * than the last delivered message coming from
+         * the sender process. If this is the case
+         * then deliver the message.
+         */
+        deliverMessage(message);
+        if (message.stable)
+            this.messagesBuffer.remove(message);
+        else
+            this.messagesBuffer.add(message);
+    }
 
-        if (!message.stable) {
-            System.out.printf("%d P-%d P-%d received_message %s\n",
-                    System.currentTimeMillis(),
+    /**
+     * Deliver the message given if there is not
+     * a more recent message delivered from the
+     * sender process with regards to the point of
+     * view of the current process (as in vector clocks).
+     * @param message
+     */
+    protected void deliverMessage(Message message) {
+        if (this.processesDelivered
+                .get(message.senderID) == null ||
+                this.processesDelivered
+                .get(message.senderID) < message.messageID) {
+            System.out.printf("%d deliver multicast %d from %d within %d\n",
                     this.id,
+                    message.messageID,
                     message.senderID,
-                    message.toString());
-            this.messagesUnstable.add(message);
-        } else {
-            System.out.printf("%d P-%d P-%d STABLE %s\n",
-                    System.currentTimeMillis(),
-                    this.id,
-                    message.senderID,
-                    message.toString());
-            // TODO: should we deliver this message
-            // in the current view?
-            this.deliverMessage(message);
+                    message.viewId);
+            System.out.printf("%d P-%d P-%d delivered_message %s\n",
+                  System.currentTimeMillis(),
+                  this.id,
+                  message.senderID,
+                  message.toString());
+            // update the mapping
+            this.updateProcessesDelivered(message.senderID,
+                    message.messageID);
         }
     }
 

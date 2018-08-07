@@ -1,11 +1,14 @@
 csv_converter <- function(filepath) {
-  fh_read = file(filepath, "r")
-  fh_write= file("log.csv", "w")
+  pattern <- "^[[:digit:]]+ P-[-]?[[:alnum:]] P-[-]?[[:alnum:]][*]*"
+  fh_read <- file(filepath, "r")
+  fh_write<- file("log.csv", "w")
   while (TRUE) {
     line = readLines(fh_read, n = 1)
     if (length(line) == 0) {
       break
     }
+    if (!grepl(pattern, line))
+      next
     for (x in 1:3) {
       line <- sub("\\s+", ";", line)
     }
