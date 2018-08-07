@@ -55,7 +55,7 @@ public abstract class EventsController extends BaseParticipant {
         this.views.fromMap(views);
         Set<Integer> processes = this.events.fromMap(events);
         for (Integer process : processes) {
-            this.processLastCall.put(process, -1);
+            this.processesDelivered.put(process, -1);
         }
     }
 
@@ -429,7 +429,7 @@ public abstract class EventsController extends BaseParticipant {
     }
 
     public String getProcessLabel(Integer processId) {
-        Integer messageId = this.processLastCall.get(processId);
+        Integer messageId = this.processesDelivered.get(processId);
         if (messageId == null)
             return null;
         return "p" + processId.toString() +
@@ -437,7 +437,7 @@ public abstract class EventsController extends BaseParticipant {
     }
 
     public String getProcessNextLabel(Integer processId) {
-        Integer messageId = this.processLastCall.get(processId);
+        Integer messageId = this.processesDelivered.get(processId);
         if (messageId == null)
             return null;
         messageId += 1;

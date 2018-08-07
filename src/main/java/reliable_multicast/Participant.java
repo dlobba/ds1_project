@@ -159,7 +159,7 @@ public class Participant extends BaseParticipant {
         this.tempView = new View(viewChange.id,
                 viewChange.members,
                 viewChange.membersIds);
-        for (Message message : messagesUnstable) {
+        for (Message message : messagesBuffer) {
             for (ActorRef member : this.tempView.members) {
                 sendNetworkMessage(message, member);
             }
@@ -246,9 +246,13 @@ public class Participant extends BaseParticipant {
         // this node cannot send message
         // until this one is completed
         this.canSend = false;
+        System.out.printf("%d send multicast %d within %d\n",
+                this.id,
+                this.multicastId,
+                this.view.id);
         Message message = new Message(this.id,
                 this.multicastId,
-                this.tempView.id,
+                this.view.id,
                 false);
         this.multicastId += 1;
         for (ActorRef member : this.view.members) {
