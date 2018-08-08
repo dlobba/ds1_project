@@ -228,7 +228,7 @@ public class GroupManager extends EventsController {
                     new HashSet<>(this.tempView.members);
             participants.remove(this.getSelf()); // exclude the group
                                                  // manager
-            AliveMsg aliveMsg = new AliveMsg(this.aliveId, this.id);
+            AliveMsg aliveMsg = new AliveMsg();
             for (ActorRef participant : participants) {
                 alivesReceived.add(participant);
             }
@@ -244,9 +244,8 @@ public class GroupManager extends EventsController {
         alivesReceived.remove(this.getSender());
         
          //DEBUG:
-         System.out.printf("%d P-%d P-%d received_alive_message %s\n",
-                 System.currentTimeMillis(), this.id, msg.senderID,
-                 msg.toString());
+         System.out.printf("%d P-%d P-%d received_alive_message\n",
+                 System.currentTimeMillis(), this.id, this.id);
     }
 
     /**

@@ -225,7 +225,7 @@ public class Participant extends BaseParticipant {
     private void onAliveMsg(AliveMsg aliveMsg) {
         if (this.crashed)
             return;
-        this.getSender().tell(new AliveMsg(this.aliveId, this.id), 
+        this.getSender().tell(new AliveMsg(), 
                 this.getSelf());
     }
 
