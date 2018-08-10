@@ -140,11 +140,6 @@ public class GroupManager extends EventsController {
         onViewChange(newView);
     }
 
-    @Override
-    protected void onReceiveMessage(Message message) {
-        super.onReceiveMessage(message);
-    }
-
     private void onViewChange(Set<ActorRef> newMembers) {
         // tell every member in the view to stop
         // generating new multicasts
@@ -152,7 +147,7 @@ public class GroupManager extends EventsController {
         waitTime = this.delayedMulticast(new StopMulticastMsg(), newMembers);
 
         // Due to FIFO guarantees given by the Akka
-        // framework, we are (we should) be safe not
+        // framework, we are (we should be) safe to
         // send the view change before acknowledging
         // everyone has stopped sending multicasts.
         Set<Integer> membersIds = new HashSet<>();
@@ -233,18 +228,18 @@ public class GroupManager extends EventsController {
 
     private void onAliveMsg(AliveMsg msg) {
         alivesReceived.remove(this.getSender());
-        
-         //DEBUG:
-         System.out.printf("%d P-%d P-%d received_alive_message\n",
-                 System.currentTimeMillis(), this.id, this.id);
+        //DEBUG:
+        System.out.printf("%d P-%d P-%d received_alive_message\n",
+                System.currentTimeMillis(), this.id, this.id);
     }
 
     /**
      * An inverse heartbeat flowing from each participant to the group
      * manager.
      *
-     * When we terminate the group manager, the this won't answer to
-     * heartbeat request anymore, thus participant can terminate.
+     * When we terminate the group manager, it won't answer to
+     * heartbeat request anymore, thus the participant can terminate
+     * (if it is alive).
      *
      * @param msg
      */

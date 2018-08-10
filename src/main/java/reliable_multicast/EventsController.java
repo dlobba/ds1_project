@@ -71,7 +71,7 @@ public abstract class EventsController extends BaseParticipant {
 
         // start counting steps
         if (this.manualMode)
-            this.scheduleStep();
+            sendTimeoutMessage(new SendStepMsg());
     }
 
     public EventsController() {
@@ -80,10 +80,6 @@ public abstract class EventsController extends BaseParticipant {
 
     protected void onSendStepMsg(SendStepMsg stepMsg) {
         this.onStep();
-        this.scheduleStep();
-    }
-
-    protected void scheduleStep() {
         sendTimeoutMessage(new SendStepMsg());
     }
 
@@ -152,10 +148,10 @@ public abstract class EventsController extends BaseParticipant {
          */
         if (!this.view.equals(this.tempView)) {
             System.out
-                    .printf("%d P-%d P-%s INFO View unstable\n",
-                            System.currentTimeMillis(),
-                            this.id,
-                            this.id);
+            .printf("%d P-%d P-%s INFO view_unstable\n",
+                    System.currentTimeMillis(),
+                    this.id,
+                    this.id);
             return;
         }
 
@@ -271,7 +267,7 @@ public abstract class EventsController extends BaseParticipant {
          * processing. This is done due to the fact that an event that
          * still has to happen is triggered by one of the sender (it
          * cannot be in any other way). What we are doing here is a kind
-         * of preemptive events handling.
+         * of preemptive event handling.
          *
          * If a process has associated both a normal multicast and a
          * crashing multicast, then avoid doing the first multicast. In
@@ -315,8 +311,8 @@ public abstract class EventsController extends BaseParticipant {
                     triggeringIds.add(senderId);
                     if (!this.events.isSendingEvent(nextEventLabel) &&
                             !this.events
-                                    .getEventReceivers(nextEventLabel)
-                                    .contains(senderId))
+                            .getEventReceivers(nextEventLabel)
+                            .contains(senderId))
                         senders.add(tmpSender);
                     else {
                         System.out
@@ -356,9 +352,8 @@ public abstract class EventsController extends BaseParticipant {
                 risenList.add(crashedProcess);
             }
         }
-        /*
-         * DONE all checks are done. It's safe to blindly send messages.
-         */
+        // DONE: all checks are done.
+        // It's safe to blindly send messages.
         for (ActorRef sender : senders) {
             sender.tell(new SendMulticastMsg(), this.getSelf());
         }
@@ -380,9 +375,7 @@ public abstract class EventsController extends BaseParticipant {
     /**
      * Check whether the sender Id has an event associated. If this is
      * the case then generate the associated message and send it to the
-     * correct receiver (as of now it's the actor associated with the
-     * sender ID).
-     *
+     * correct receiver.
      */
     protected void triggerEvent(String eventLabel) {
         Event event = this.events.getEvent(eventLabel);
