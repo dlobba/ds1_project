@@ -1,0 +1,6 @@
+{
+   "manual_mode": false,
+   "events": {
+       "p2m5" : {"RECEIVE_MESSAGE_N_CRASH" : ["p1"]}
+   }
+}
