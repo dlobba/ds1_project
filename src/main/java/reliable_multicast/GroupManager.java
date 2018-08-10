@@ -115,14 +115,6 @@ public class GroupManager extends EventsController {
 
     // ------------------------------------------
 
-    public int getIdPool() {
-        return idPool;
-    }
-
-    public Set<ActorRef> getAlivesReceived() {
-        return new HashSet<>(this.alivesReceived);
-    }
-
     private void onJoinRequestMsg(JoinRequestMsg request) {
         // DEBUG:
         System.out.printf("%d P-%s P-%s INFO join_request\n",
@@ -203,7 +195,6 @@ public class GroupManager extends EventsController {
              */
             Set<ActorRef> newView = new HashSet<>(
                     this.tempView.members);
-
             // ----------------------------------
             // This is just to have additional info
             // on crashed nodes. It's of no other use.

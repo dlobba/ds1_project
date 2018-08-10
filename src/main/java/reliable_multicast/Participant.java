@@ -6,12 +6,10 @@ import java.util.Set;
 
 import akka.actor.ActorRef;
 import akka.actor.Props;
-import akka.util.Timeout;
 import reliable_multicast.messages.*;
 import reliable_multicast.messages.events_messages.MulticastCrashMsg;
 import reliable_multicast.messages.events_messages.ReceivingCrashMsg;
 import reliable_multicast.messages.step_message.StepMessage;
-import scala.concurrent.Await;
 
 public class Participant extends BaseParticipant {
 
@@ -59,20 +57,6 @@ public class Participant extends BaseParticipant {
         this.crashed = false;
         this.isGmAlive = false;
         this.groupManager = null;
-        
-//        Timeout timeout = new Timeout(MAX_DELAY_TIME, java.util.concurrent.TimeUnit.SECONDS); 
-//        ActorRef groupManagerRef;
-//        try {
-//            groupManagerRef = Await.result(getContext()
-//                    .actorSelection(groupManagerPath)
-//                    .resolveOne(timeout), 
-//                    timeout.duration());
-//
-//            sendNetworkMessage(new JoinRequestMsg(),
-//                    groupManagerRef);
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
         getContext().actorSelection(groupManagerPath)
         .tell(new JoinRequestMsg(),
                 this.getSelf());

@@ -199,22 +199,6 @@ public class BaseParticipant extends AbstractActor {
         return null;
     }
 
-    public int getId() {
-        return id;
-    }
-
-    public int getMulticastId() {
-        return multicastId;
-    }
-
-    public View getView() {
-        return new View(view);
-    }
-
-    public View getTempView() {
-        return new View(tempView);
-    }
-
     protected void onStopMulticast(StopMulticastMsg stopMsg) {
         this.canSend = false;
         System.out
@@ -315,8 +299,8 @@ public class BaseParticipant extends AbstractActor {
      */
     protected void scheduleMulticast() {
         /*
-         * if in manual mode, multicasts are not sent automatically, so
-         * block the scheduling.
+         * if in manual mode, multicasts are not sent automatically,
+         * so block the scheduling.
          */
         if (this.manualMode)
             return;
