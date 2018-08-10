@@ -390,8 +390,17 @@ public abstract class EventsController extends BaseParticipant {
         for (Integer receiverId : receiversIds) {
             tmpReceiver = this.aliveProcesses
                     .getActorById(receiverId);
-            if (tmpReceiver == null)
+            if (tmpReceiver == null) {
+                System.out
+                .printf("%d P-%d P-%s ERROR process p%d" +
+                        " cannot crash." +
+                        " It's not alive. Check the conf. file.\n",
+                        System.currentTimeMillis(),
+                        this.id,
+                        this.id,
+                        receiverId);
                 return;
+            }
             receivers.add(tmpReceiver);
         }
 
