@@ -1,0 +1,6 @@
+{
+   "manual_mode": false,
+   "events": {
+       "p1m12" : {"MULTICAST_ONE_N_CRASH" : ["p1"]}
+   }
+}

@@ -1,0 +1,7 @@
+{
+   "manual_mode": false,
+   "events": {
+       "p2m0" : {"RECEIVE_VIEW_N_CRASH" : ["p2"]},
+       "p2m5" : {"MULTICAST_N_CRASH" : ["p1"]}
+   }
+}
