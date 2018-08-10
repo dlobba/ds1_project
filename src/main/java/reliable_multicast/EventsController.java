@@ -92,11 +92,12 @@ public abstract class EventsController extends BaseParticipant {
         super.onReceiveMessage(message);
         /*
          * This will allow the group manager to manage events in the
-         * case one doesn't want to use the config file.
+         * case one doesn't want to use the automatic mode.
+         * 
+         * The config file can be used just to define events
+         * (manual mode must be set to false). In this case
+         * just events will be considered.
          *
-         * Events can be pushed to event list manually.
-         *
-         * TODO: test this
          */
         if (!this.manualMode)
             this.triggerEvent(message.getLabel());
