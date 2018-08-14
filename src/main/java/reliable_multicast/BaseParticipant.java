@@ -50,14 +50,11 @@ public class BaseParticipant extends AbstractActor {
     // from the point of view of this actor
     protected final Map<Integer, Integer> processesDelivered;
 
-    // this was used to debug alives messages
-    protected int aliveId;
     protected boolean manualMode;
 
     protected void resetParticipant() {
         this.id = -1;
         this.multicastId = 0;
-        this.aliveId = 0;
         this.canSend = false;
         this.view = new View(-1);
         this.tempView = new View(-1);
@@ -129,6 +126,11 @@ public class BaseParticipant extends AbstractActor {
     protected void sendTimeoutMessage(Object message) {
         sendInternalMessage(message,
                 MAX_TIMEOUT);
+    }
+
+    protected void sendTimeoutMessageAfter(Object message, int after) {
+        sendInternalMessage(message,
+                after + MAX_TIMEOUT);
     }
 
     /**

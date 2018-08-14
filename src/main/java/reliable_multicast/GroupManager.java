@@ -219,7 +219,6 @@ public class GroupManager extends EventsController {
                 alivesReceived.add(participant);
             }
             this.delayedMulticast(aliveMsg, participants);
-            aliveId++;
         }
         // Wait to receive responses from all
         // participants
