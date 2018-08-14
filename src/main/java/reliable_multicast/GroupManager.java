@@ -181,7 +181,7 @@ public class GroupManager extends EventsController {
                  System.currentTimeMillis(),
                  this.id,
                  this.id);
-         
+        int waitTime = 0;
         if (alivesReceived.size() > 0) {
             /*
              * here the view must be changed. A node crashed. New
@@ -218,11 +218,11 @@ public class GroupManager extends EventsController {
             for (ActorRef participant : participants) {
                 alivesReceived.add(participant);
             }
-            this.delayedMulticast(aliveMsg, participants);
+            waitTime = this.delayedMulticast(aliveMsg, participants);
         }
         // Wait to receive responses from all
         // participants
-        sendTimeoutMessage(new CheckViewMsg());
+        sendTimeoutMessageAfter(new CheckViewMsg(), waitTime);
     }
 
     private void onAliveMsg(AliveMsg msg) {
