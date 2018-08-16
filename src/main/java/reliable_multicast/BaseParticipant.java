@@ -30,10 +30,6 @@ public class BaseParticipant extends AbstractActor {
     public static final int MAX_TIMEOUT =
             MAX_DELAY_TIME * 2 + 1;
 
-    
-    // not in using as of now...
-    //public static final int MAX_DELAY = MULTICAST_INTERLEAVING / 2;
-
     protected int id;
     protected int multicastId;
     // the set of actors that are seen by this node
@@ -225,7 +221,6 @@ public class BaseParticipant extends AbstractActor {
                 viewChange.membersIds);
         this.removeOldFlushes(this.tempView.id);
 
-        // TODO: should we send all message up to this view?
         int waitTime = 0;
         for (Message message : messagesBuffer) {
             // mark the message as stable
@@ -249,7 +244,6 @@ public class BaseParticipant extends AbstractActor {
          */
         if (flushMsg.viewID < this.tempView.id)
             return;
-
         this.flushesReceived.add(flushMsg);
         System.out.printf("%d P-%d P-%d received_flush V%d\n",
                 System.currentTimeMillis(),
@@ -346,28 +340,14 @@ public class BaseParticipant extends AbstractActor {
          */
         if (!this.tempView.members.contains(this.getSender()))
             return;
-        // if the view is greater than the current one then
-        // store the message, without deliver it.
-        // once the message received is also stable
-        // stop adding messages of this kind to the buffer
-        if (message.viewId > this.view.id) {
-//            if (message.stable)
-//                this.messagesBuffer.add(message);
-//            else {
-//                Message tmp = this.getMessage(message);
-//                if (tmp != null && tmp.stable)
-//                    return;
-//                this.messagesBuffer.add(message);
-//            }
-            return;
-        }
         // a message is crossing the view boundary.
         // ignore it
+        if (message.viewId > this.view.id) {
+            return;
+        }
         if (message.viewId < this.view.id)
             return;
-        /* message view is the same as current view
-         * or a preceding view.
-         * Check if the id of the new message is greater
+        /* Check if the id of the new message is greater
          * than the last delivered message coming from
          * the sender process. If this is the case
          * then deliver the message.

@@ -83,7 +83,6 @@ public class GroupManager extends EventsController {
             Map<Integer, Set<String>> views) {
         super(manualMode, events, sendOrder, risenOrder, views);
         this.initGroupManager(id);
-
     }
 
     /**
@@ -124,7 +123,6 @@ public class GroupManager extends EventsController {
 
         JoinRequestMsg response = new JoinRequestMsg(this.idPool);
         this.getSender().tell(response, this.getSelf());
-
         // add a new entry to the association map
         this.aliveProcesses.addIdRefAssoc(this.idPool,
                 this.getSender());
@@ -135,7 +133,7 @@ public class GroupManager extends EventsController {
         // the most up to date.
         Set<ActorRef> newView = new HashSet<>(this.tempView.members);
         newView.add(this.getSender());
-        // the method must be issue after the node
+        // the method must be issued after the node
         // has received its new id.
         onViewChange(newView);
     }
@@ -145,7 +143,6 @@ public class GroupManager extends EventsController {
         // generating new multicasts
         int waitTime;
         waitTime = this.delayedMulticast(new StopMulticastMsg(), newMembers);
-
         // Due to FIFO guarantees given by the Akka
         // framework, we are (we should be) safe to
         // send the view change before acknowledging
@@ -175,7 +172,6 @@ public class GroupManager extends EventsController {
      * then issue a view change.
      */
     private void onCheckViewMsg(CheckViewMsg msg) {
-        
          // DEBUG:
          System.out.printf("%d P-%d P-%d INFO Checking survivors\n",
                  System.currentTimeMillis(),

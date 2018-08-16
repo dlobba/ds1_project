@@ -145,7 +145,6 @@ public class Participant extends BaseParticipant {
                 viewChange.members,
                 viewChange.membersIds);
         this.removeOldFlushes(this.tempView.id);
-        // TODO: should we send all message up to this view?
         int waitTime = 0;
         for (Message message : messagesBuffer) {
             // mark the message as stable
@@ -220,7 +219,6 @@ public class Participant extends BaseParticipant {
      */
     private void onReviveMsg(ReviveMsg reviveMsg) {
         this.crashed = false;
-        // TODO: remove the node from the crashed node
         this.groupManager.tell(new JoinRequestMsg(),
                 this.getSelf());
     }
@@ -265,7 +263,7 @@ public class Participant extends BaseParticipant {
      * what this actor will do) and the receiving actor crashes after
      * seeing the message.
      * 
-     * So no operational particiapant will see the message, although
+     * So no operational participant will see the message, although
      * some crashed node received (and could have delivered) the
      * message.
      * 
@@ -291,7 +289,7 @@ public class Participant extends BaseParticipant {
             System.out.printf("%d P-%d P-%s WARNING: too few view" +
                     " members. Two participants and the" +
                     " group manager are required." +
-                    " Crash denied. Multicast aborted. \n",
+                    " Crash denied. Multicast aborted.\n",
                     System.currentTimeMillis(),
                     this.id,
                     this.id);
@@ -400,7 +398,7 @@ public class Participant extends BaseParticipant {
 
     // DEBUG:
     private void onStepMessage(StepMessage msg) {
-    	System.out.printf("%d P-%d P-%s INFO step-%d\n",
+        System.out.printf("%d P-%d P-%s INFO step-%d\n",
                 System.currentTimeMillis(),
                 this.id,
                 this.id,
