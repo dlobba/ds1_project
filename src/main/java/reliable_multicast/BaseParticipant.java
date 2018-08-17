@@ -17,7 +17,7 @@ import reliable_multicast.messages.ViewChangeMsg;
 import reliable_multicast.utils.Config;
 import scala.concurrent.duration.Duration;
 
-public class BaseParticipant extends AbstractActor {
+public abstract class BaseParticipant extends AbstractActor {
 
     // --- Messages for internal behavior ---
     public static class SendMulticastMsg implements Serializable {};
